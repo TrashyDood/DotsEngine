@@ -89,6 +89,7 @@ public:
 	void DotsScene_ClearDots();
 	void DotsScene_LeaderBoardMode();
 
+	void DotsScene_CreateCollisionTree();
 	void DotsScene_HandleDotsCollisions();
 	void DotsScene_HandleBoundsCollisions();
 	void DotsScene_HandleDeadDots();

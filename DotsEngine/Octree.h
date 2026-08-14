@@ -8,6 +8,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
 
+#include "tracy/Tracy.hpp"
+
 #include "DebugLines.h"
 
 struct OctItem { size_t index; glm::vec3 pos; float radius; };
@@ -21,31 +23,21 @@ public:
 
 	void Clear() { items.clear(); for (auto& c : children) c.reset(); }
 
-	void Insert(size_t index, glm::vec3 pos, float radius) { Insert({ index, pos, radius }, 0); }
+	void Octree_Insert(size_t index, glm::vec3 pos, float radius) { Octree_Insert({ index, pos, radius }, 0); }
 
-	void Query(glm::vec3 pos, float radius, std::vector<size_t>& out) const
+	void Octree_Query(glm::vec3 pos, float radius, std::vector<size_t>& out) const
 	{
-		for (auto& it : items)
+		for (auto& item : items)
 		{
-			float rSum = radius + it.radius;
-			if (glm::length2(it.pos - pos) <= rSum * rSum) out.push_back(it.index);
+			float rSum = radius + item.radius;
+			if (glm::length2(item.pos - pos) <= rSum * rSum) out.push_back(item.index);
 		}
 
 		if (IsLeaf()) return;
 
 		for (auto& c : children)
 			if (SphereBoxOverlap(pos, radius, c->center, c->halfSize))
-				c->Query(pos, radius, out);
-	}
-
-	// traverses the tree to check if there are any items contained within
-	bool HasItems() const
-	{
-		if (!items.empty()) return true;
-		if (IsLeaf()) return false;
-		for (auto& c : children)
-			if (c->HasItems()) return true;
-		return false;
+				c->Octree_Query(pos, radius, out);
 	}
 
 	void DrawBounds()
@@ -81,12 +73,14 @@ private:
 		return std::max({ d.x, d.y, d.z }) + item.radius <= child->halfSize;
 	}
 
-	void Insert(const OctItem& item, int depth)
+	void Octree_Insert(const OctItem& item, int depth)
 	{
 		if (!IsLeaf())
 		{
 			Octree* c = children[ChildIndex(item.pos)].get();
-			if (FitsChild(item, c)) { c->Insert(item, depth + 1); return; }
+			//Octree* c = children[ChildIndex(item.pos)];
+
+			if (FitsChild(item, c)) { c->Octree_Insert(item, depth + 1); return; }
 			items.push_back(item);
 			return;
 		}
@@ -96,12 +90,17 @@ private:
 		{
 			float h = halfSize * 0.5f;
 			for (int i = 0; i < 8; i++)
+			{
 				children[i] = std::make_unique<Octree>(
-					center + glm::vec3((i & 1) ? h : -h, (i & 2) ? h : -h, (i & 4) ? h : -h), h, maxDepth, maxPerNode);
+					center + glm::vec3((i & 1) ? h : -h, (i & 2) ? h : -h, (i & 4) ? h : -h), // create new child with location based on its child index
+					h,
+					maxDepth,
+					maxPerNode);
+			}
 
 			std::vector<OctItem> old = std::move(items);
 			items.clear();
-			for (auto& it2 : old) Insert(it2, depth);
+			for (auto& it2 : old) Octree_Insert(it2, depth);
 		}
 	}
 

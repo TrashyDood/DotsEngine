@@ -10,6 +10,7 @@ public:
 
 	void Mesh_Setup();
 	void Mesh_Render(Shader* aShader, glm::vec3 position);
+	void Mesh_InstancedRender(Shader* aShader);
 
 protected:
 	virtual void Mesh_CreateMesh();
