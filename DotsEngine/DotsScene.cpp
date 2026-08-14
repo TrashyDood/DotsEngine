@@ -32,7 +32,7 @@ void DotsScene::DotsScene_Render()
 
 	DotsScene_DrawBounds();
 
-	//collisionTree.DrawBounds();
+	collisionTree.DrawBounds();
 }
 
 void DotsScene::DotsScene_Update()
@@ -123,67 +123,66 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	//}
 
 	collisionTree = Octree(glm::vec3(0, 0, 0), bounds);
-	
 	for (size_t i = 0; i < dots.size(); i++)
 		collisionTree.Insert(i, dots[i].position, dots[i].radius);
 	
-	for (size_t d1 = 0; d1 < dots.size(); d1++)
-	{
-		std::vector<size_t> nearby;
-		collisionTree.Query(dots[d1].position, dots[d1].radius, nearby);
-	
-		for (size_t d2 : nearby)
-		{
-			if (d2 <= d1) continue; // skip self and checked pairs
-	
-			float radiusSum = dots[d1].radius + dots[d2].radius;
-			float distSqr = glm::length2(dots[d1].position - dots[d2].position);
-	
-			if (distSqr < radiusSum * radiusSum)
-			{
-				glm::vec3 n1 = glm::normalize(dots[d1].velocity);
-				glm::vec3 n2 = glm::normalize(dots[d2].velocity);
-	
-				dots[d2].velocity = glm::reflect(dots[d2].velocity, n1);
-				dots[d1].velocity = glm::reflect(dots[d1].velocity, n2);
-	
-				dots[d2].Health--;
-				dots[d2].ReCreate();
-	
-				dots[d1].Health--;
-				dots[d1].ReCreate();
-			}
-
-			//float radiusSum = dots[d1].radius + dots[d2].radius;
-			//glm::vec3 diff = dots[d1].position - dots[d2].position;
-			//float distSqr = glm::length2(diff);
-			//
-			//if (distSqr < radiusSum * radiusSum)
-			//{
-			//	float dist = std::sqrt(distSqr);
-			//	glm::vec3 normal = (dist > 0.0001f) ? (diff / dist) : glm::vec3(1, 0, 0); // fallback if exactly coincident
-			//
-			//	// --- Positional correction: push apart so they no longer overlap ---
-			//	float overlap = radiusSum - dist;
-			//	glm::vec3 correction = normal * (overlap * 0.5f); // split the correction between both dots
-			//	dots[d1].position += correction;
-			//	dots[d2].position -= correction;
-			//
-			//	// --- Velocity response (existing) ---
-			//	glm::vec3 n1 = glm::normalize(dots[d1].velocity);
-			//	glm::vec3 n2 = glm::normalize(dots[d2].velocity);
-			//
-			//	dots[d2].velocity = glm::reflect(dots[d2].velocity, n1);
-			//	dots[d1].velocity = glm::reflect(dots[d1].velocity, n2);
-			//
-			//	dots[d2].Health--;
-			//	dots[d2].ReCreate();
-			//
-			//	dots[d1].Health--;
-			//	dots[d1].ReCreate();
-			//}
-		}
-	}
+	//for (size_t d1 = 0; d1 < dots.size(); d1++)
+	//{
+	//	std::vector<size_t> nearby;
+	//	collisionTree.Query(dots[d1].position, dots[d1].radius, nearby);
+	//
+	//	for (size_t d2 : nearby)
+	//	{
+	//		if (d2 <= d1) continue; // skip self and checked pairs
+	//
+	//		float radiusSum = dots[d1].radius + dots[d2].radius;
+	//		float distSqr = glm::length2(dots[d1].position - dots[d2].position);
+	//
+	//		if (distSqr < radiusSum * radiusSum)
+	//		{
+	//			glm::vec3 n1 = glm::normalize(dots[d1].velocity);
+	//			glm::vec3 n2 = glm::normalize(dots[d2].velocity);
+	//
+	//			dots[d2].velocity = glm::reflect(dots[d2].velocity, n1);
+	//			dots[d1].velocity = glm::reflect(dots[d1].velocity, n2);
+	//
+	//			dots[d2].Health--;
+	//			dots[d2].ReCreate();
+	//
+	//			dots[d1].Health--;
+	//			dots[d1].ReCreate();
+	//		}
+	//
+	//		//float radiusSum = dots[d1].radius + dots[d2].radius;
+	//		//glm::vec3 diff = dots[d1].position - dots[d2].position;
+	//		//float distSqr = glm::length2(diff);
+	//		//
+	//		//if (distSqr < radiusSum * radiusSum)
+	//		//{
+	//		//	float dist = std::sqrt(distSqr);
+	//		//	glm::vec3 normal = (dist > 0.0001f) ? (diff / dist) : glm::vec3(1, 0, 0); // fallback if exactly coincident
+	//		//
+	//		//	// --- Positional correction: push apart so they no longer overlap ---
+	//		//	float overlap = radiusSum - dist;
+	//		//	glm::vec3 correction = normal * (overlap * 0.5f); // split the correction between both dots
+	//		//	dots[d1].position += correction;
+	//		//	dots[d2].position -= correction;
+	//		//
+	//		//	// --- Velocity response (existing) ---
+	//		//	glm::vec3 n1 = glm::normalize(dots[d1].velocity);
+	//		//	glm::vec3 n2 = glm::normalize(dots[d2].velocity);
+	//		//
+	//		//	dots[d2].velocity = glm::reflect(dots[d2].velocity, n1);
+	//		//	dots[d1].velocity = glm::reflect(dots[d1].velocity, n2);
+	//		//
+	//		//	dots[d2].Health--;
+	//		//	dots[d2].ReCreate();
+	//		//
+	//		//	dots[d1].Health--;
+	//		//	dots[d1].ReCreate();
+	//		//}
+	//	}
+	//}
 
 	//collisionTree = Octree(glm::vec3(0, 0, 0), bounds);
 	//
@@ -247,6 +246,46 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	//		dots[d1].ReCreate();
 	//	}
 	//}
+
+for (size_t dot1 = 0; dot1 < dots.size(); dot1++)
+{
+	// query every dot that can overlap
+	std::vector<size_t> nearby;
+	collisionTree.Query(dots[dot1].position, dots[dot1].radius, nearby);
+
+	for (size_t dot2 : nearby)
+	{
+		if (dot2 <= dot1) continue; // skip self and already checked
+
+		// check if within distance
+		float radiusSum = dots[dot1].radius + dots[dot2].radius;
+		glm::vec3 diff = dots[dot1].position - dots[dot2].position;
+		float distSqr = glm::length2(diff);
+
+		if (distSqr < radiusSum * radiusSum && distSqr > 0.0001f)
+		{
+			float dist = std::sqrt(distSqr);
+			glm::vec3 normal = diff / dist; // unit vector pointing from d2 toward d1
+
+			// push dots apart so they stop overlapping
+			float overlap = radiusSum - dist; // how much they're currently overlapping
+			glm::vec3 correction = normal * (overlap * 0.5f * 0.2f);
+			dots[dot1].position += correction;
+			dots[dot2].position -= correction;
+
+			// bounce each dot off the other's velocity
+			glm::vec3 n1 = glm::normalize(dots[dot1].velocity);
+			glm::vec3 n2 = glm::normalize(dots[dot2].velocity);
+			dots[dot2].velocity = glm::reflect(dots[dot2].velocity, n1);
+			dots[dot1].velocity = glm::reflect(dots[dot1].velocity, n2);
+
+			dots[dot2].Health--;
+			dots[dot2].ReCreate();
+			dots[dot1].Health--;
+			dots[dot1].ReCreate();
+		}
+	}
+}
 }
 
 void DotsScene::DotsScene_HandleBoundsCollisions()

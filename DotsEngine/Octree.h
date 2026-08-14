@@ -38,6 +38,7 @@ public:
 				c->Query(pos, radius, out);
 	}
 
+	// traverses the tree to check if there are any items contained within
 	bool HasItems() const
 	{
 		if (!items.empty()) return true;
@@ -49,8 +50,9 @@ public:
 
 	void DrawBounds()
 	{
-		if (HasItems())
+		if (!items.empty())
 			DebugLines::DrawCube(center, glm::quat(), glm::vec3(halfSize, halfSize, halfSize), glm::vec3(1, 1, 1));
+
 		if (!IsLeaf())
 			for (auto& c : children)
 				c->DrawBounds();
@@ -67,9 +69,12 @@ private:
 
 	int ChildIndex(glm::vec3 position) const
 	{
-		return (position.x > center.x) | ((position.y > center.y) << 1) | ((position.z > center.z) << 2);
+		return (position.x > center.x) | // 0-1 +
+			((position.y > center.y) << 1) | // 0-2 +
+			((position.z > center.z) << 2); // 0-4
 	}
 
+	// checks child exists within this octree cell
 	bool FitsChild(const OctItem& item, Octree* child) const
 	{
 		glm::vec3 d = glm::abs(item.pos - child->center);
@@ -100,9 +105,9 @@ private:
 		}
 	}
 
-	static bool SphereBoxOverlap(glm::vec3 position, float radius, glm::vec3 child, float h)
+	static bool SphereBoxOverlap(glm::vec3 position, float radius, glm::vec3 child, float halfSize)
 	{
-		glm::vec3 closest = glm::clamp(position, child - glm::vec3(h), child + glm::vec3(h));
+		glm::vec3 closest = glm::clamp(position, child - glm::vec3(halfSize), child + glm::vec3(halfSize));
 		return glm::length2(closest - position) <= radius * radius;
 	}
 };
