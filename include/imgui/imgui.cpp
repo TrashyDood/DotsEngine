@@ -9318,10 +9318,10 @@ void ImGui::SetItemDefaultFocus()
         ScrollToRectEx(window, g.LastItemData.Rect, ImGuiScrollFlags_None);
 }
 
-void ImGui::SetStateStorage(ImGuiStorage* collisionTree)
+void ImGui::SetStateStorage(ImGuiStorage* tree)
 {
     ImGuiWindow* window = GImGui->CurrentWindow;
-    window->DC.StateStorage = collisionTree ? collisionTree : &window->StateStorage;
+    window->DC.StateStorage = tree ? tree : &window->StateStorage;
 }
 
 ImGuiStorage* ImGui::GetStateStorage()

@@ -3145,14 +3145,14 @@ static void DemoWindowWidgetsSelectionAndMultiSelect(ImGuiDemoWindowData* demo_d
                 }
 
                 // Apply multi-selection requests
-                static void ApplySelectionRequests(ImGuiMultiSelectIO* ms_io, ExampleTreeNode* collisionTree, ImGuiSelectionBasicStorage* selection)
+                static void ApplySelectionRequests(ImGuiMultiSelectIO* ms_io, ExampleTreeNode* tree, ImGuiSelectionBasicStorage* selection)
                 {
                     for (ImGuiSelectionRequest& req : ms_io->Requests)
                     {
                         if (req.Type == ImGuiSelectionRequestType_SetAll)
                         {
                             if (req.Selected)
-                                TreeSetAllInOpenNodes(collisionTree, selection, req.Selected);
+                                TreeSetAllInOpenNodes(tree, selection, req.Selected);
                             else
                                 selection->Clear();
                         }
@@ -3212,14 +3212,14 @@ static void DemoWindowWidgetsSelectionAndMultiSelect(ImGuiDemoWindowData* demo_d
 
             if (ImGui::BeginChild("##Tree", ImVec2(-FLT_MIN, ImGui::GetFontSize() * 20), ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeY))
             {
-                ExampleTreeNode* collisionTree = demo_data->DemoTree;
+                ExampleTreeNode* tree = demo_data->DemoTree;
                 ImGuiMultiSelectFlags ms_flags = ImGuiMultiSelectFlags_ClearOnEscape | ImGuiMultiSelectFlags_BoxSelect2d;
                 ImGuiMultiSelectIO* ms_io = ImGui::BeginMultiSelect(ms_flags, selection.Size, -1);
-                ExampleTreeFuncs::ApplySelectionRequests(ms_io, collisionTree, &selection);
-                for (ExampleTreeNode* node : collisionTree->Childs)
+                ExampleTreeFuncs::ApplySelectionRequests(ms_io, tree, &selection);
+                for (ExampleTreeNode* node : tree->Childs)
                     ExampleTreeFuncs::DrawNode(node, &selection);
                 ms_io = ImGui::EndMultiSelect();
-                ExampleTreeFuncs::ApplySelectionRequests(ms_io, collisionTree, &selection);
+                ExampleTreeFuncs::ApplySelectionRequests(ms_io, tree, &selection);
             }
             ImGui::EndChild();
 

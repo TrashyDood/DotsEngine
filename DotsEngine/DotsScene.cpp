@@ -65,7 +65,7 @@ void DotsScene::DotsScene_Render()
 	//DotsScene_NaiveDotRender();
 	DotsScene_InstancedDotRender();
 
-	collisionTree.DrawBounds();
+	//collisionTree.DrawBounds();
 	DotsScene_DrawBounds();
 }
 
@@ -130,24 +130,26 @@ void DotsScene::DotsScene_ClearDots()
 
 void DotsScene::DotsScene_HandleDotsCollisions()
 {
-	ZoneScopedNC("Collision Handling", Colors::Collision);
-
 	{
-		ZoneScopedNC("Create Collision Tree", Colors::Collision);
+		//ZoneScopedNC("Create Collision Tree", Colors::Collision);
 
-		collisionTree = Octree(glm::vec3(0, 0, 0), bounds);
+		collisionTree.Reset(bounds);
 		for (size_t i = 0; i < dots.size(); i++)
-			collisionTree.Octree_Insert(i, dots[i].position, dots[i].radius);
+			collisionTree.Insert(i, dots[i].position, dots[i].radius);
 	}
 
+	for (size_t dot1 = 0; dot1 < dots.size(); dot1++)
 	{
-		ZoneScopedNC("Handle Collisions", Colors::Collision);
+		std::vector<size_t> nearby;
 
-		for (size_t dot1 = 0; dot1 < dots.size(); dot1++)
 		{
-			std::vector<size_t> nearby;
+			//ZoneScopedNC("Query Collisions", Colors::Collision);
 
-			collisionTree.Octree_Query(dots[dot1].position, dots[dot1].radius, nearby);
+			collisionTree.Query(dots[dot1].position, dots[dot1].radius, nearby);
+		}
+
+		{
+			//ZoneScopedNC("Resolve Collisions", Colors::Collision);
 
 			for (size_t dot2 : nearby)
 			{
@@ -226,7 +228,7 @@ void DotsScene::DotsScene_NaiveDotRender()
 
 void DotsScene::DotsScene_InstancedDotRender()
 {
-	ZoneScopedNC("Instanced Rendering", Colors::Render);
+	//ZoneScopedNC("Instanced Rendering", Colors::Render);
 
 	using namespace DotAssets;
 
@@ -268,10 +270,6 @@ DotsScene::~DotsScene()
 
 	for (auto& mesh : DotAssets::Meshes())
 		delete mesh;
-
-	//delete SphereMesh1();
-	//delete SphereMesh2();
-	//delete SphereMesh3();
 }
 
 void DotsScene::DotsScene_LeaderBoardMode()

@@ -8,106 +8,179 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
 
-#include "tracy/Tracy.hpp"
-
 #include "DebugLines.h"
 
-struct OctItem { size_t index; glm::vec3 pos; float radius; };
+struct CollisionItem { size_t index; glm::vec3 pos; float radius; };
 
-class Octree
+template<size_t MaxDepth, size_t MaxItems>
+class CollisionTree
 {
 public:
-	Octree(glm::vec3 center = glm::vec3(0, 0, 0), float halfSize = 0, int maxDepth = 6, int maxPerNode = 3)
-		: center(center), halfSize(halfSize), maxDepth(maxDepth), maxPerNode(maxPerNode) {
-	}
-
-	void Clear() { items.clear(); for (auto& c : children) c.reset(); }
-
-	void Octree_Insert(size_t index, glm::vec3 pos, float radius) { Octree_Insert({ index, pos, radius }, 0); }
-
-	void Octree_Query(glm::vec3 pos, float radius, std::vector<size_t>& out) const
+	struct Node
 	{
-		for (auto& item : items)
+		inline constexpr bool IsLeaf() const { return children[0] == -1; }
+		inline constexpr int GetChildIndex(const glm::vec3 position) const
 		{
-			float rSum = radius + item.radius;
-			if (glm::length2(item.pos - pos) <= rSum * rSum) out.push_back(item.index);
+			return (position.x > center.x) | // 0-1 +
+				((position.y > center.y) << 1) | // 0-2 +
+				((position.z > center.z) << 2); // 0-4
 		}
 
-		if (IsLeaf()) return;
+		glm::vec3 center{};
+		float halfSize = 0;
+		int children[8] = { -1,-1,-1,-1,-1,-1,-1,-1 };
+		CollisionItem items[MaxItems + 1] {}; // +1 for temporary overflow before split
+		int itemCount = 0;
 
-		for (auto& c : children)
-			if (SphereBoxOverlap(pos, radius, c->center, c->halfSize))
-				c->Octree_Query(pos, radius, out);
-	}
+		bool AddItem(const CollisionItem& item)
+		{
+			if (itemCount >= MaxItems + 1) return false;
+			items[itemCount++] = item;
+			return true;
+		}
+	};
 
-	void DrawBounds()
+	static constexpr int PoolSize(int maxDepth = MaxDepth)
 	{
-		if (!items.empty())
-			DebugLines::DrawCube(center, glm::quat(), glm::vec3(halfSize, halfSize, halfSize), glm::vec3(1, 1, 1));
-
-		if (!IsLeaf())
-			for (auto& c : children)
-				c->DrawBounds();
+		int total = 0;
+		int levelCount = 1;
+		for (int i = 0; i <= maxDepth; i++)
+		{
+			total += levelCount;
+			levelCount *= 8;
+		}
+		return total;
 	}
 
 private:
-	glm::vec3 center;
+	Node nodePool[PoolSize()];
 	float halfSize;
-	int maxDepth, maxPerNode;
-	std::vector<OctItem> items;
-	std::unique_ptr<Octree> children[8];
+	int maxPerNode;
+	size_t lastIndex = 0;
 
-	bool IsLeaf() const { return children[0] == nullptr; }
+public:
+	CollisionTree(float halfSize = 0, int maxPerNode = 3) :
+		halfSize(halfSize), maxPerNode(maxPerNode) {}
 
-	int ChildIndex(glm::vec3 position) const
+	void Reset(float aHalfSize, glm::vec3 center = glm::vec3())
 	{
-		return (position.x > center.x) | // 0-1 +
-			((position.y > center.y) << 1) | // 0-2 +
-			((position.z > center.z) << 2); // 0-4
+		halfSize = aHalfSize;
+		lastIndex = 1; // index 0 is the root, already occupied
+		nodePool[0] = Node{};
+		nodePool[0].center = center;
+		nodePool[0].halfSize = halfSize;
 	}
 
-	// checks child exists within this octree cell
-	bool FitsChild(const OctItem& item, Octree* child) const
+	void Insert(size_t index, glm::vec3 pos, float radius)
 	{
-		glm::vec3 d = glm::abs(item.pos - child->center);
-		return std::max({ d.x, d.y, d.z }) + item.radius <= child->halfSize;
+		InsertAt(0, { index, pos, radius }, 0);
 	}
 
-	void Octree_Insert(const OctItem& item, int depth)
+	void Query(glm::vec3 pos, float radius, std::vector<size_t>& out) const
 	{
-		if (!IsLeaf())
+		QueryAt(0, pos, radius, out);
+	}
+
+	void DrawBounds() const
+	{
+		DrawNode(0);
+	}
+
+private:
+	int Reserve(size_t count)
+	{
+		if (lastIndex + count > PoolSize()) return -1;
+		int result = (int)lastIndex;
+		lastIndex += count;
+		return result;
+	}
+
+	bool FitsChild(const CollisionItem& item, const Node& child) const
+	{
+		glm::vec3 d = glm::abs(item.pos - child.center);
+		return std::max({ d.x, d.y, d.z }) + item.radius <= child.halfSize;
+	}
+
+	void InsertAt(int nodeIndex, const CollisionItem& item, int depth)
+	{
+		Node& node = nodePool[nodeIndex];
+
+		if (!node.IsLeaf())
 		{
-			Octree* c = children[ChildIndex(item.pos)].get();
-			//Octree* c = children[ChildIndex(item.pos)];
+			int child = node.children[node.GetChildIndex(item.pos)];
 
-			if (FitsChild(item, c)) { c->Octree_Insert(item, depth + 1); return; }
-			items.push_back(item);
+			if (FitsChild(item, nodePool[child]))
+			{
+				InsertAt(child, item, depth + 1);
+				return;
+			}
+
+			node.AddItem(item);
 			return;
 		}
 
-		items.push_back(item);
-		if ((int)items.size() > maxPerNode && depth < maxDepth)
+		node.AddItem(item);
+
+		if (node.itemCount > maxPerNode && depth < (int)MaxDepth)
 		{
-			float h = halfSize * 0.5f;
+			int baseIndex = Reserve(8);
+
+			if (baseIndex < 0)
+				return;
+
+			float halfsize = node.halfSize * 0.5f;
+			glm::vec3 center = node.center;
+
 			for (int i = 0; i < 8; i++)
 			{
-				children[i] = std::make_unique<Octree>(
-					center + glm::vec3((i & 1) ? h : -h, (i & 2) ? h : -h, (i & 4) ? h : -h), // create new child with location based on its child index
-					h,
-					maxDepth,
-					maxPerNode);
+				Node& child = nodePool[baseIndex + i];
+				child = Node{};
+				child.center = center + glm::vec3((i & 1) ? halfsize : -halfsize, (i & 2) ? halfsize : -halfsize, (i & 4) ? halfsize : -halfsize);
+				child.halfSize = halfsize;
+				node.children[i] = baseIndex + i;
 			}
 
-			std::vector<OctItem> old = std::move(items);
-			items.clear();
-			for (auto& it2 : old) Octree_Insert(it2, depth);
+			CollisionItem old[MaxItems + 1];
+			int oldCount = node.itemCount;
+			for (int i = 0; i < oldCount; i++) old[i] = node.items[i];
+			node.itemCount = 0;
+
+			for (int i = 0; i < oldCount; i++)
+				InsertAt(nodeIndex, old[i], depth);
 		}
 	}
 
-	static bool SphereBoxOverlap(glm::vec3 position, float radius, glm::vec3 child, float halfSize)
+	void QueryAt(int nodeIndex, glm::vec3 pos, float radius, std::vector<size_t>& out) const
 	{
-		glm::vec3 closest = glm::clamp(position, child - glm::vec3(halfSize), child + glm::vec3(halfSize));
-		return glm::length2(closest - position) <= radius * radius;
+		const Node& node = nodePool[nodeIndex];
+
+		for (size_t i = 0; i < node.itemCount; i++)
+		{
+			float rSum = radius + node.items[i].radius;
+			if (glm::length2(node.items[i].pos - pos) <= rSum * rSum) out.push_back(node.items[i].index);
+		}
+
+		if (node.IsLeaf()) return;
+
+		for (int c : node.children)
+			if (SphereBoxOverlap(pos, radius, nodePool[c].center, nodePool[c].halfSize))
+				QueryAt(c, pos, radius, out);
+	}
+
+	void DrawNode(int nodeIndex) const
+	{
+		const Node& node = nodePool[nodeIndex];
+
+		if (node.itemCount)
+			DebugLines::DrawCube(node.center, glm::quat(), glm::vec3(node.halfSize), glm::vec3(1, 1, 1));
+
+		if (!node.IsLeaf())
+			for (int c : node.children) DrawNode(c);
+	}
+
+	static bool SphereBoxOverlap(glm::vec3 pos, float radius, glm::vec3 c, float hs)
+	{
+		glm::vec3 closest = glm::clamp(pos, c - glm::vec3(hs), c + glm::vec3(hs));
+		return glm::length2(closest - pos) <= radius * radius;
 	}
 };
-

@@ -120,6 +120,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(Solutiondir)include\;$(Solutiondir)include\GLFW\;$(Solutiondir)include\tracy\public\</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>glad/glad.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

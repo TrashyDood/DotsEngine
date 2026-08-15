@@ -1,11 +1,12 @@
 #pragma once
-#include "Mesh_Sphere.h"
-#include "Shader.h"
 #include <vector>
 #include <Camera/FlyingCamera.h>
+#include <array>
+
+#include "Mesh_Sphere.h"
+#include "Shader.h"
 
 #include "Octree.h"
-#include "ThreadPool.h"
 
 namespace DotAssets
 {
@@ -43,11 +44,12 @@ struct Dot
 
 class DotsScene
 {
-	std::vector<glm::mat4> meshInstances[DotAssets::meshCount]; // stores dot instances for every different mesh
+	// stores dot instances for every different mesh
+	std::vector<glm::mat4> meshInstances[DotAssets::meshCount];
 	std::vector<Dot> dots;
 
 	FlyingCamera* flyingCamera = nullptr;
-	Octree collisionTree;
+	CollisionTree<4, 3> collisionTree;
 
 public:
 	static Camera* mainCamera;
