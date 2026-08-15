@@ -6,10 +6,11 @@ Mesh_Sphere::Mesh_Sphere(float aRadius, glm::vec3 aColor)
 {
 	radius = aRadius;
 	color = aColor;
-	Mesh_Setup();
+
+	Mesh_Init();
 }
 
-void Mesh_Sphere::Mesh_CreateMesh()
+void Mesh_Sphere::Mesh_ConstructMesh()
 {
 	int stacks = 36;
 	int sectors = 18;

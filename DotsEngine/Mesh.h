@@ -6,19 +6,35 @@ class Shader;
 
 class Mesh
 {
-public:
-
-	void Mesh_Setup();
-	void Mesh_Render(Shader* aShader, glm::vec3 position);
-	void Mesh_InstancedRender(Shader* aShader);
+	unsigned int VAO, VBO, EBO; // IDs for buffer data stored in GPU memory
 
 protected:
-	virtual void Mesh_CreateMesh();
 	std::vector<float> vertices;
 	std::vector<unsigned int> indices;
 	glm::vec3 color;
 
-private:
-	unsigned int VAO, VBO, EBO;
+public:
+	const inline unsigned int GetVAO() const { return VAO; }
+	const inline unsigned int GetVBO() const { return VBO; }
+	const inline unsigned int GetEBO() const { return EBO; }
+
+	void Mesh_RenderSingle(Shader* aShader, glm::vec3 position);
+
+protected:
+	virtual void Mesh_Init();
+	virtual void Mesh_ConstructMesh() = 0;
 };
 
+class InstancedMesh : public Mesh
+{
+	unsigned int instanceVBO;
+
+public:
+	const inline unsigned int GetInstanceVBO() const { return instanceVBO; }
+
+	void Mesh_UpdateInstanceData(const std::vector<glm::mat4>& models);
+	void Mesh_RenderInstanced(const Shader* aShader, const size_t instanceCount);
+
+protected:
+	void Mesh_Init() override;
+};

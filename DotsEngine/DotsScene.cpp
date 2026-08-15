@@ -9,6 +9,41 @@
 
 #include "tracy/Tracy.hpp"
 
+namespace Colors
+{
+	constexpr uint32_t Red = 0xFF0000;
+	constexpr uint32_t Green = 0x00FF00;
+	constexpr uint32_t Blue = 0x0000FF;
+	constexpr uint32_t Yellow = 0xFFFF00;
+	constexpr uint32_t Magenta = 0xFF00FF;
+	constexpr uint32_t Cyan = 0x00FFFF;
+	constexpr uint32_t Orange = 0xFFA500;
+	constexpr uint32_t Purple = 0x800080;
+	constexpr uint32_t Pink = 0xFFC0CB;
+	constexpr uint32_t Brown = 0xA52A2A;
+	constexpr uint32_t White = 0xFFFFFF;
+	constexpr uint32_t Black = 0x000000;
+	constexpr uint32_t Gray = 0x808080;
+	constexpr uint32_t LightGray = 0xD3D3D3;
+	constexpr uint32_t DarkGray = 0x404040;
+	constexpr uint32_t Teal = 0x008080;
+	constexpr uint32_t Navy = 0x000080;
+	constexpr uint32_t Lime = 0x32CD32;
+	constexpr uint32_t Gold = 0xFFD700;
+	constexpr uint32_t Indigo = 0x4B0082;
+	constexpr uint32_t Maroon = 0x800000;
+	constexpr uint32_t Olive = 0x808000;
+	constexpr uint32_t Turquoise = 0x40E0D0;
+	constexpr uint32_t Salmon = 0xFA8072;
+	constexpr uint32_t Coral = 0xFF7F50;
+
+	constexpr uint32_t Update = Green;
+	constexpr uint32_t Render = Blue;
+	constexpr uint32_t Collision = Red;
+	constexpr uint32_t Spawn = Gold;
+	constexpr uint32_t Cleanup = Gray;
+}
+
 Camera* DotsScene::mainCamera;
 
 DotsScene::DotsScene()
@@ -27,13 +62,11 @@ void DotsScene::DotsScene_Start()
 
 void DotsScene::DotsScene_Render()
 {
-	ZoneScoped;
+	//DotsScene_NaiveDotRender();
+	DotsScene_InstancedDotRender();
 
-	for (auto& dot : dots)
-		dot.Dot_Render();
-
-	DotsScene_DrawBounds();
 	collisionTree.DrawBounds();
+	DotsScene_DrawBounds();
 }
 
 void DotsScene::DotsScene_Update()
@@ -69,7 +102,7 @@ void DotsScene::DotsScene_SpawnRandomDot()
 
 	Dot newDot;
 	newDot.Health = 3;
-	newDot.ReCreate();
+	newDot.Refresh();
 
 	glm::vec3 velocity = glm::sphericalRand(1.0f);
 	newDot.velocity = velocity;
@@ -82,7 +115,7 @@ void DotsScene::DotsScene_SpawnDot(glm::vec3 aPosition, glm::vec3 aVelocity)
 {
 	Dot newDot;
 	newDot.Health = 3;
-	newDot.ReCreate();
+	newDot.Refresh();
 
 	newDot.velocity = aVelocity;
 	newDot.position = aPosition;
@@ -95,58 +128,55 @@ void DotsScene::DotsScene_ClearDots()
 	dots.clear();
 }
 
-void DotsScene::DotsScene_CreateCollisionTree()
-{
-	ZoneScoped;
-
-	collisionTree = Octree(glm::vec3(0, 0, 0), bounds);
-	for (size_t i = 0; i < dots.size(); i++)
-		collisionTree.Octree_Insert(i, dots[i].position, dots[i].radius);
-}
-
 void DotsScene::DotsScene_HandleDotsCollisions()
 {
-	//ZoneScoped;
+	ZoneScopedNC("Collision Handling", Colors::Collision);
 
-	DotsScene_CreateCollisionTree();
-
-	return;
-	for (size_t dot1 = 0; dot1 < dots.size(); dot1++)
 	{
-		// query every dot that can overlap
-		std::vector<size_t> nearby;
-		collisionTree.Octree_Query(dots[dot1].position, dots[dot1].radius, nearby);
+		ZoneScopedNC("Create Collision Tree", Colors::Collision);
 
-		for (size_t dot2 : nearby)
+		collisionTree = Octree(glm::vec3(0, 0, 0), bounds);
+		for (size_t i = 0; i < dots.size(); i++)
+			collisionTree.Octree_Insert(i, dots[i].position, dots[i].radius);
+	}
+
+	{
+		ZoneScopedNC("Handle Collisions", Colors::Collision);
+
+		for (size_t dot1 = 0; dot1 < dots.size(); dot1++)
 		{
-			if (dot2 <= dot1) continue; // skip self and already checked
+			std::vector<size_t> nearby;
 
-			// check if within distance
-			float radiusSum = dots[dot1].radius + dots[dot2].radius;
-			glm::vec3 diff = dots[dot1].position - dots[dot2].position;
-			float distSqr = glm::length2(diff);
+			collisionTree.Octree_Query(dots[dot1].position, dots[dot1].radius, nearby);
 
-			if (distSqr < radiusSum * radiusSum && distSqr > 0.0001f)
+			for (size_t dot2 : nearby)
 			{
-				float dist = std::sqrt(distSqr);
-				glm::vec3 normal = diff / dist; // unit vector pointing from d2 toward d1
+				if (dot2 <= dot1) continue;
 
-				// push dots apart so they stop overlapping
-				float overlap = radiusSum - dist; // how much they're currently overlapping
-				glm::vec3 correction = normal * (overlap * 0.5f * 0.2f);
-				dots[dot1].position += correction;
-				dots[dot2].position -= correction;
+				float radiusSum = dots[dot1].radius + dots[dot2].radius;
+				glm::vec3 diff = dots[dot1].position - dots[dot2].position;
+				float distSqr = glm::length2(diff);
 
-				// bounce each dot off the other's velocity
-				glm::vec3 n1 = glm::normalize(dots[dot1].velocity);
-				glm::vec3 n2 = glm::normalize(dots[dot2].velocity);
-				dots[dot2].velocity = glm::reflect(dots[dot2].velocity, n1);
-				dots[dot1].velocity = glm::reflect(dots[dot1].velocity, n2);
+				if (distSqr < radiusSum * radiusSum && distSqr > 0.0001f)
+				{
+					float dist = std::sqrt(distSqr);
+					glm::vec3 normal = diff / dist;
 
-				dots[dot2].Health--;
-				dots[dot2].ReCreate();
-				dots[dot1].Health--;
-				dots[dot1].ReCreate();
+					float overlap = radiusSum - dist;
+					glm::vec3 correction = normal * (overlap * 0.5f * 0.2f);
+					dots[dot1].position += correction;
+					dots[dot2].position -= correction;
+
+					glm::vec3 n1 = glm::normalize(dots[dot1].velocity);
+					glm::vec3 n2 = glm::normalize(dots[dot2].velocity);
+					dots[dot2].velocity = glm::reflect(dots[dot2].velocity, n1);
+					dots[dot1].velocity = glm::reflect(dots[dot1].velocity, n2);
+
+					dots[dot2].Health--;
+					dots[dot2].Refresh();
+					dots[dot1].Health--;
+					dots[dot1].Refresh();
+				}
 			}
 		}
 	}
@@ -154,8 +184,6 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 
 void DotsScene::DotsScene_HandleBoundsCollisions()
 {
-	ZoneScoped;
-
 	//Handle bounds
 	for (auto& dot : dots)
 	{
@@ -171,8 +199,6 @@ void DotsScene::DotsScene_HandleBoundsCollisions()
 
 void DotsScene::DotsScene_HandleDeadDots()
 {
-	ZoneScoped;
-
 	//Handle death, spawn new dot
 	std::vector<size_t> toRemove;
 
@@ -188,6 +214,39 @@ void DotsScene::DotsScene_HandleDeadDots()
 	//Handle removal from vector and spawning new dot
 	for (int i = toRemove.size() - 1; i >= 0; i--)
 		dots.erase(dots.begin() + toRemove[i]);
+}
+
+void DotsScene::DotsScene_NaiveDotRender()
+{
+	ZoneScopedNC("Naive Rendering", Colors::Render);
+
+	for (auto& dot : dots)
+		dot.mesh->Mesh_RenderSingle(DotAssets::SphereShader(), dot.position);
+}
+
+void DotsScene::DotsScene_InstancedDotRender()
+{
+	ZoneScopedNC("Instanced Rendering", Colors::Render);
+
+	using namespace DotAssets;
+
+	for (auto& instances : meshInstances)
+		instances.clear();
+
+	// add a mesh instance for every dot
+	for (auto& dot : dots)
+		meshInstances[dot.Health - 1].push_back(glm::translate(glm::mat4(1.0f), dot.position));
+
+	SphereShader()->Bind();
+	SphereShader()->SetUniformMat4("ViewProjection", mainCamera->GetViewProjection());
+	SphereShader()->Unbind();
+
+	// update mesh instances and then render them
+	for (size_t i = 0; i < meshCount; i++)
+	{
+		Meshes()[i]->Mesh_UpdateInstanceData(meshInstances[i]);
+		Meshes()[i]->Mesh_RenderInstanced(SphereShader(), meshInstances[i].size());
+	}
 }
 
 float DotsScene::RandomFloat(float min, float max)
@@ -206,9 +265,13 @@ DotsScene::~DotsScene()
 	using namespace DotAssets;
 
 	delete SphereShader();
-	delete SphereMesh1();
-	delete SphereMesh2();
-	delete SphereMesh3();
+
+	for (auto& mesh : DotAssets::Meshes())
+		delete mesh;
+
+	//delete SphereMesh1();
+	//delete SphereMesh2();
+	//delete SphereMesh3();
 }
 
 void DotsScene::DotsScene_LeaderBoardMode()

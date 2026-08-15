@@ -15,6 +15,8 @@
 
 #include "tracy/Tracy.hpp"
 
+#include "ThreadPool.h"
+
 const char* glsl_version = "#version 330 core"; // please don't break my heart, my achey breaky heart
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)

@@ -4,15 +4,11 @@
 #include "DotsScene.h"
 #include <Camera/Camera.h>
 
-void Mesh::Mesh_CreateMesh()
+void Mesh::Mesh_Init()
 {
-	// nothing burger
-}
+	Mesh_ConstructMesh();
 
-void Mesh::Mesh_Setup()
-{
-	Mesh_CreateMesh();
-
+	// generate new buffers and return the IDs
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -31,7 +27,7 @@ void Mesh::Mesh_Setup()
 	glBindVertexArray(0);
 }
 
-void Mesh::Mesh_Render(Shader* aShader, glm::vec3 position)
+void Mesh::Mesh_RenderSingle(Shader* aShader, glm::vec3 position)
 {
 	aShader->Bind();
 
@@ -44,4 +40,45 @@ void Mesh::Mesh_Render(Shader* aShader, glm::vec3 position)
 	glBindVertexArray(0);
 
 	aShader->Unbind();
+}
+
+// ---- Instanced Mesh ----
+
+void InstancedMesh::Mesh_Init()
+{
+	Mesh::Mesh_Init();
+
+	glBindVertexArray(GetVAO());
+	glGenBuffers(1, &instanceVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+
+	for (int i = 0; i < 4; i++)
+	{
+		glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * i));
+		glEnableVertexAttribArray(1 + i);
+		glVertexAttribDivisor(1 + i, 1);
+	}
+
+	glBindVertexArray(0);
+}
+
+void InstancedMesh::Mesh_UpdateInstanceData(const std::vector<glm::mat4>& models)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glBufferData(GL_ARRAY_BUFFER, models.size() * sizeof(glm::mat4), models.data(), GL_DYNAMIC_DRAW);
+}
+
+void InstancedMesh::Mesh_RenderInstanced(const Shader* aShader, const size_t instanceCount)
+{
+	if (!instanceCount) return;
+
+	aShader->Bind();
+	aShader->SetUniformVec3("Color", color);
+
+	glBindVertexArray(GetVAO());
+	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0, (GLsizei)instanceCount);
+	glBindVertexArray(0);
+
+	aShader->Unbind();
+
 }

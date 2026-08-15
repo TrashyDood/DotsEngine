@@ -9,17 +9,22 @@
 
 namespace DotAssets
 {
+	static constexpr int meshCount = 3;
 	static inline Shader*& SphereShader() { static Shader* s = new Shader("Assets/Shaders/VertexShader.glsl", "Assets/Shaders/FragmentShader.glsl"); return s; }
-	static inline Mesh_Sphere*& SphereMeshDef() { static Mesh_Sphere* m = new Mesh_Sphere(1, glm::vec3(1, 1, 1)); return m; }
-	static inline Mesh_Sphere*& SphereMesh1() { static Mesh_Sphere* m = new Mesh_Sphere(1, glm::vec3(1, 0, 0)); return m; }
-	static inline Mesh_Sphere*& SphereMesh2() { static Mesh_Sphere* m = new Mesh_Sphere(2, glm::vec3(0, 1, 0)); return m; }
-	static inline Mesh_Sphere*& SphereMesh3() { static Mesh_Sphere* m = new Mesh_Sphere(3, glm::vec3(0, 0, 1)); return m; }
+	static inline std::array<Mesh_Sphere*, 3>& Meshes()
+	{
+		static std::array<Mesh_Sphere*, meshCount> meshes = {
+			new Mesh_Sphere(1, glm::vec3(1, 0, 0)),
+			new Mesh_Sphere(2, glm::vec3(0, 1, 0)),
+			new Mesh_Sphere(3, glm::vec3(0, 0, 1))
+		};
+		return meshes;
+	}
 }
 
 struct Dot
 {
 	Mesh_Sphere* mesh = nullptr;
-	//Shader* shader;
 
 	glm::vec3 position{};
 	glm::vec3 velocity{};
@@ -27,45 +32,23 @@ struct Dot
 	float radius = 0;
 	int Health = 0;
 
-	void Dot_Render()
+	void Refresh()
 	{
-		mesh->Mesh_Render(DotAssets::SphereShader(), position);
-	}
+		if (Health > 0 && Health < 4)
+			mesh = DotAssets::Meshes()[Health - 1];
 
-	void ReCreate()
-	{
-		//glm::vec3 color = glm::vec3(1, 1, 1);
-
-		switch (Health)
-		{
-		case 1:
-			//color = glm::vec3(1, 0, 0);
-			mesh = DotAssets::SphereMesh1();
-			radius = 1;
-			break;
-		case 2:
-			//color = glm::vec3(0, 1, 0);
-			mesh = DotAssets::SphereMesh2();
-			radius = 2;
-			break;
-		case 3:
-			//color = glm::vec3(0, 0, 1);
-			mesh = DotAssets::SphereMesh3();
-			radius = 3;
-			break;
-		default:
-			mesh = DotAssets::SphereMeshDef();
-			radius = 1;
-			break;
-		}
-
-		//mesh = new Mesh_Sphere(radius, color);
-		//shader = new Shader("Assets/Shaders/VertexShader.glsl", "Assets/Shaders/FragmentShader.glsl");
+		radius = mesh->Radius();
 	}
 };
 
 class DotsScene
 {
+	std::vector<glm::mat4> meshInstances[DotAssets::meshCount]; // stores dot instances for every different mesh
+	std::vector<Dot> dots;
+
+	FlyingCamera* flyingCamera = nullptr;
+	Octree collisionTree;
+
 public:
 	static Camera* mainCamera;
 
@@ -89,17 +72,12 @@ public:
 	void DotsScene_ClearDots();
 	void DotsScene_LeaderBoardMode();
 
-	void DotsScene_CreateCollisionTree();
 	void DotsScene_HandleDotsCollisions();
 	void DotsScene_HandleBoundsCollisions();
 	void DotsScene_HandleDeadDots();
 
+	void DotsScene_NaiveDotRender();
+	void DotsScene_InstancedDotRender();
+
 	float RandomFloat(float min, float max);
-
-private:
-
-	std::vector<Dot> dots;
-
-	FlyingCamera* flyingCamera = nullptr;
-	Octree collisionTree;
 };
