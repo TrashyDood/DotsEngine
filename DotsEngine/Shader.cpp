@@ -125,10 +125,10 @@ void Shader::Recompile(std::string aPath)
     std::string fullPath = aPath;
     std::string deliminator = "|";
 
-    auto pos = fullPath.find(deliminator);
+    auto position = fullPath.find(deliminator);
 
-    vertPath = fullPath.substr(0, pos);
-    fullPath.erase(0, pos + deliminator.length());
+    vertPath = fullPath.substr(0, position);
+    fullPath.erase(0, position + deliminator.length());
     fragPath = fullPath;
 
     Compile(LoadTextFile(vertPath).c_str(), LoadTextFile(fragPath).c_str());

@@ -2927,7 +2927,7 @@ elf_zstd_build_fse (const int16_t *norm, int idx, uint16_t *next,
   int table_size;
   int high_threshold;
   int i;
-  int pos;
+  int position;
   int step;
   int mask;
 
@@ -2948,7 +2948,7 @@ elf_zstd_build_fse (const int16_t *norm, int idx, uint16_t *next,
 	}
     }
 
-  pos = 0;
+  position = 0;
   step = (table_size >> 1) + (table_size >> 3) + 3;
   mask = table_size - 1;
   for (i = 0; i < idx; i++)
@@ -2959,13 +2959,13 @@ elf_zstd_build_fse (const int16_t *norm, int idx, uint16_t *next,
       n = (int) norm[i];
       for (j = 0; j < n; j++)
 	{
-	  table[pos].symbol = (unsigned char) i;
-	  pos = (pos + step) & mask;
-	  while (unlikely (pos > high_threshold))
-	    pos = (pos + step) & mask;
+	  table[position].symbol = (unsigned char) i;
+	  position = (position + step) & mask;
+	  while (unlikely (position > high_threshold))
+	    position = (position + step) & mask;
 	}
     }
-  if (unlikely (pos != 0))
+  if (unlikely (position != 0))
     {
       elf_uncompress_failed ();
       return 0;
@@ -5393,8 +5393,8 @@ backtrace_uncompress_zstd (struct backtrace_state *state,
 /* Expressions for the offset in the LZMA probabilities array of a
    specific probability.  */
 
-#define LZMA_IS_MATCH(state, pos) \
-  (LZMA_PROB_IS_MATCH_OFFSET + (state) * LZMA_POS_STATES + (pos))
+#define LZMA_IS_MATCH(state, position) \
+  (LZMA_PROB_IS_MATCH_OFFSET + (state) * LZMA_POS_STATES + (position))
 #define LZMA_IS_REP(state) \
   (LZMA_PROB_IS_REP_OFFSET + (state))
 #define LZMA_IS_REP0(state) \
@@ -5403,8 +5403,8 @@ backtrace_uncompress_zstd (struct backtrace_state *state,
   (LZMA_PROB_IS_REP1_OFFSET + (state))
 #define LZMA_IS_REP2(state) \
   (LZMA_PROB_IS_REP2_OFFSET + (state))
-#define LZMA_IS_REP0_LONG(state, pos) \
-  (LZMA_PROB_IS_REP0_LONG_OFFSET + (state) * LZMA_POS_STATES + (pos))
+#define LZMA_IS_REP0_LONG(state, position) \
+  (LZMA_PROB_IS_REP0_LONG_OFFSET + (state) * LZMA_POS_STATES + (position))
 #define LZMA_DIST_SLOT(dist, slot) \
   (LZMA_PROB_DIST_SLOT_OFFSET + (dist) * LZMA_DIST_SLOTS + (slot))
 #define LZMA_DIST_SPECIAL(dist) \
@@ -5415,20 +5415,20 @@ backtrace_uncompress_zstd (struct backtrace_state *state,
   LZMA_PROB_MATCH_LEN_CHOICE_OFFSET
 #define LZMA_MATCH_LEN_CHOICE2 \
   LZMA_PROB_MATCH_LEN_CHOICE2_OFFSET
-#define LZMA_MATCH_LEN_LOW(pos, sym) \
-  (LZMA_PROB_MATCH_LEN_LOW_OFFSET + (pos) * LZMA_LEN_LOW_SYMBOLS + (sym))
-#define LZMA_MATCH_LEN_MID(pos, sym) \
-  (LZMA_PROB_MATCH_LEN_MID_OFFSET + (pos) * LZMA_LEN_MID_SYMBOLS + (sym))
+#define LZMA_MATCH_LEN_LOW(position, sym) \
+  (LZMA_PROB_MATCH_LEN_LOW_OFFSET + (position) * LZMA_LEN_LOW_SYMBOLS + (sym))
+#define LZMA_MATCH_LEN_MID(position, sym) \
+  (LZMA_PROB_MATCH_LEN_MID_OFFSET + (position) * LZMA_LEN_MID_SYMBOLS + (sym))
 #define LZMA_MATCH_LEN_HIGH(sym) \
   (LZMA_PROB_MATCH_LEN_HIGH_OFFSET + (sym))
 #define LZMA_REP_LEN_CHOICE \
   LZMA_PROB_REP_LEN_CHOICE_OFFSET
 #define LZMA_REP_LEN_CHOICE2 \
   LZMA_PROB_REP_LEN_CHOICE2_OFFSET
-#define LZMA_REP_LEN_LOW(pos, sym) \
-  (LZMA_PROB_REP_LEN_LOW_OFFSET + (pos) * LZMA_LEN_LOW_SYMBOLS + (sym))
-#define LZMA_REP_LEN_MID(pos, sym) \
-  (LZMA_PROB_REP_LEN_MID_OFFSET + (pos) * LZMA_LEN_MID_SYMBOLS + (sym))
+#define LZMA_REP_LEN_LOW(position, sym) \
+  (LZMA_PROB_REP_LEN_LOW_OFFSET + (position) * LZMA_LEN_LOW_SYMBOLS + (sym))
+#define LZMA_REP_LEN_MID(position, sym) \
+  (LZMA_PROB_REP_LEN_MID_OFFSET + (position) * LZMA_LEN_MID_SYMBOLS + (sym))
 #define LZMA_REP_LEN_HIGH(sym) \
   (LZMA_PROB_REP_LEN_HIGH_OFFSET + (sym))
 #define LZMA_LITERAL(code, size) \

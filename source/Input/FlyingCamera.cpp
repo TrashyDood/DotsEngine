@@ -33,17 +33,17 @@ void FlyingCamera::Update()
     float dy = (float)Input::MouseDeltaY();
     OnMouseMove(dx, dy);
 
-    glm::vec3 pos = m_Camera->GetPosition();
+    glm::vec3 position = m_Camera->GetPosition();
 
-    if (Input::KeyDown(GLFW_KEY_W)) pos += m_Forward * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_S)) pos -= m_Forward * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_A)) pos -= m_Right * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_D)) pos += m_Right * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_SPACE)) pos += m_Up * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_LEFT_SHIFT)) pos -= m_Up * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_W)) position += m_Forward * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_S)) position -= m_Forward * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_A)) position -= m_Right * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_D)) position += m_Right * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_SPACE)) position += m_Up * m_MoveSpeed * dt;
+    if (Input::KeyDown(GLFW_KEY_LEFT_SHIFT)) position -= m_Up * m_MoveSpeed * dt;
 
-    m_Camera->SetPosition(pos);
-    m_Camera->LookAt(pos + m_Forward, m_Up);
+    m_Camera->SetPosition(position);
+    m_Camera->LookAt(position + m_Forward, m_Up);
 }
 
 void FlyingCamera::OnMouseMove(float dx, float dy)

@@ -306,9 +306,9 @@ void dispatch_callback( rocprofiler_dispatch_counting_service_data_t dispatch_da
 
     auto search_cache = [&]()
     {
-        if( auto pos = profile_cache.find( dispatch_data.dispatch_info.agent_id.handle ); pos != profile_cache.end() )
+        if( auto position = profile_cache.find( dispatch_data.dispatch_info.agent_id.handle ); position != profile_cache.end() )
         {
-            *config = pos->second;
+            *config = position->second;
             return true;
         }
         return false;

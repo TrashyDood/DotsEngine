@@ -657,11 +657,11 @@ void ImGui::TableBeginInitMemory(ImGuiTable* table, int columns_count)
     // Allocate single buffer for our arrays
     const int columns_bit_array_size = (int)ImBitArrayGetStorageSizeInBytes(columns_count);
     ImSpanAllocator<6> span_allocator;
-    span_allocator.Reserve(0, columns_count * sizeof(ImGuiTableColumn));
-    span_allocator.Reserve(1, columns_count * sizeof(ImGuiTableColumnIdx));
-    span_allocator.Reserve(2, columns_count * sizeof(ImGuiTableCellData), 4);
+    span_allocator.ReserveNodes(0, columns_count * sizeof(ImGuiTableColumn));
+    span_allocator.ReserveNodes(1, columns_count * sizeof(ImGuiTableColumnIdx));
+    span_allocator.ReserveNodes(2, columns_count * sizeof(ImGuiTableCellData), 4);
     for (int n = 3; n < 6; n++)
-        span_allocator.Reserve(n, columns_bit_array_size);
+        span_allocator.ReserveNodes(n, columns_bit_array_size);
     table->RawData = IM_ALLOC(span_allocator.GetArenaSizeInBytes());
     memset(table->RawData, 0, span_allocator.GetArenaSizeInBytes());
     span_allocator.SetArenaBasePtr(table->RawData);

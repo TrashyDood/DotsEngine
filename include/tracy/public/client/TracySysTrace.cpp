@@ -1153,16 +1153,16 @@ void SysTraceWorker( void* ptr )
             const auto id = ring.GetId();
             assert( id != EventContextSwitch );
             const auto end = head - tail;
-            uint64_t pos = 0;
+            uint64_t position = 0;
             if( id == EventCallstack )
             {
-                while( pos < end )
+                while( position < end )
                 {
                     perf_event_header hdr;
-                    ring.Read( &hdr, pos, sizeof( perf_event_header ) );
+                    ring.Read( &hdr, position, sizeof( perf_event_header ) );
                     if( hdr.type == PERF_RECORD_SAMPLE )
                     {
-                        auto offset = pos + sizeof( perf_event_header );
+                        auto offset = position + sizeof( perf_event_header );
 
                         // Layout:
                         //   u32 pid, tid
@@ -1197,18 +1197,18 @@ void SysTraceWorker( void* ptr )
                             TracyLfqCommit;
                         }
                     }
-                    pos += hdr.size;
+                    position += hdr.size;
                 }
             }
             else
             {
-                while( pos < end )
+                while( position < end )
                 {
                     perf_event_header hdr;
-                    ring.Read( &hdr, pos, sizeof( perf_event_header ) );
+                    ring.Read( &hdr, position, sizeof( perf_event_header ) );
                     if( hdr.type == PERF_RECORD_SAMPLE )
                     {
-                        auto offset = pos + sizeof( perf_event_header );
+                        auto offset = position + sizeof( perf_event_header );
 
                         // Layout:
                         //   u64 ip
@@ -1254,10 +1254,10 @@ void SysTraceWorker( void* ptr )
                         MemWrite( &item->hwSample.time, int64_t( buf.t0 ) );
                         TracyLfqCommit;
                     }
-                    pos += hdr.size;
+                    position += hdr.size;
                 }
             }
-            assert( pos == end );
+            assert( position == end );
             ring.Advance( end );
         }
         if( !traceActive.load( std::memory_order_relaxed ) ) break;
@@ -1269,21 +1269,21 @@ void SysTraceWorker( void* ptr )
             int activeNum = 0;
             uint16_t active[512];
             uint32_t end[512];
-            uint32_t pos[512];
+            uint32_t position[512];
             int64_t time[512];
 
-            auto PrimeNext = [&pos, &end, &time]( int idx, RingBuffer& ring ) {
-                while( pos[idx] < end[idx] )
+            auto PrimeNext = [&position, &end, &time]( int idx, RingBuffer& ring ) {
+                while( position[idx] < end[idx] )
                 {
                     perf_event_header hdr;
-                    ring.Read( &hdr, pos[idx], sizeof( hdr ) );
+                    ring.Read( &hdr, position[idx], sizeof( hdr ) );
                     if( hdr.type == PERF_RECORD_SAMPLE )
                     {
-                        ring.Read( time + idx, pos[idx] + sizeof( hdr ), sizeof( int64_t ) );
+                        ring.Read( time + idx, position[idx] + sizeof( hdr ), sizeof( int64_t ) );
                         return true;
                     }
                     assert( hdr.size > 0 );
-                    pos[idx] += hdr.size;
+                    position[idx] += hdr.size;
                 }
                 return false;
             };
@@ -1297,7 +1297,7 @@ void SysTraceWorker( void* ptr )
                 if( rbHead != rbTail )
                 {
                     end[i] = rbHead - rbTail;
-                    pos[i] = 0;
+                    position[i] = 0;
                     if( PrimeNext( i, ringArray[rbIdx] ) )
                     {
                         active[activeNum] = (uint16_t)i;
@@ -1331,10 +1331,10 @@ void SysTraceWorker( void* ptr )
                     // Found any event
                     if( sel >= 0 )
                     {
-                        assert( pos[sel] < end[sel] );
+                        assert( position[sel] < end[sel] );
 
                         auto& ring = ringArray[ctxBufferIdx + sel];
-                        auto rbPos = pos[sel];
+                        auto rbPos = position[sel];
                         auto offset = rbPos;
                         perf_event_header hdr;
                         ring.Read( &hdr, offset, sizeof( perf_event_header ) );
@@ -1481,7 +1481,7 @@ void SysTraceWorker( void* ptr )
                         }
 
                         rbPos += hdr.size;
-                        pos[sel] = rbPos;
+                        position[sel] = rbPos;
                         if( !PrimeNext( sel, ring ) )
                         {
                             active[selPos] = active[activeNum - 1];

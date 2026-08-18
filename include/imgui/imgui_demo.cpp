@@ -1861,7 +1861,7 @@ static void DemoWindowWidgetsImages()
 
         {
             ImGui::Text("%.0fx%.0f", my_tex_w, my_tex_h);
-            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImVec2 position = ImGui::GetCursorScreenPos();
             ImVec2 uv_min = ImVec2(0.0f, 0.0f); // Top-left
             ImVec2 uv_max = ImVec2(1.0f, 1.0f); // Lower-right
             ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, IM_MAX(1.0f, ImGui::GetStyle().ImageBorderSize));
@@ -1869,8 +1869,8 @@ static void DemoWindowWidgetsImages()
             if (ImGui::BeginItemTooltip())
             {
                 float region_sz = 32.0f;
-                float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
-                float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+                float region_x = io.MousePos.x - position.x - region_sz * 0.5f;
+                float region_y = io.MousePos.y - position.y - region_sz * 0.5f;
                 float zoom = 4.0f;
                 if (region_x < 0.0f) { region_x = 0.0f; }
                 else if (region_x > my_tex_w - region_sz) { region_x = my_tex_w - region_sz; }
@@ -3688,9 +3688,9 @@ static void DemoWindowWidgetsText()
             for (int n = 0; n < 2; n++)
             {
                 ImGui::Text("Test paragraph %d:", n);
-                ImVec2 pos = ImGui::GetCursorScreenPos();
-                ImVec2 marker_min = ImVec2(pos.x + wrap_width, pos.y);
-                ImVec2 marker_max = ImVec2(pos.x + wrap_width + 10, pos.y + ImGui::GetTextLineHeight());
+                ImVec2 position = ImGui::GetCursorScreenPos();
+                ImVec2 marker_min = ImVec2(position.x + wrap_width, position.y);
+                ImVec2 marker_max = ImVec2(position.x + wrap_width + 10, position.y + ImGui::GetTextLineHeight());
                 ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + wrap_width);
                 if (n == 0)
                     ImGui::Text("The lazy dog is a good dog. This paragraph should fit within %.0f pixels. Testing a 1 character word. The quick brown fox jumps over the lazy dog.", wrap_width);
@@ -9775,9 +9775,9 @@ static void ShowExampleAppConstrainedResize(bool* p_open)
         {
             // Display a dummy viewport (in your real app you would likely use ImageButton() to display a texture)
             ImVec2 avail_size = ImGui::GetContentRegionAvail();
-            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImVec2 position = ImGui::GetCursorScreenPos();
             ImGui::ColorButton("viewport", ImVec4(0.5f, 0.2f, 0.5f, 1.0f), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop, avail_size);
-            ImGui::SetCursorScreenPos(ImVec2(pos.x + 10, pos.y + 10));
+            ImGui::SetCursorScreenPos(ImVec2(position.x + 10, position.y + 10));
             ImGui::Text("%.2f x %.2f", avail_size.x, avail_size.y);
         }
         else
@@ -11023,8 +11023,8 @@ struct ExampleAssetsBrowser
                         ImGui::PushID((int)item_data->ID);
 
                         // Position item
-                        ImVec2 pos = ImVec2(start_pos.x + (item_idx % column_count) * LayoutItemStep.x, start_pos.y + line_idx * LayoutItemStep.y);
-                        ImGui::SetCursorScreenPos(pos);
+                        ImVec2 position = ImVec2(start_pos.x + (item_idx % column_count) * LayoutItemStep.x, start_pos.y + line_idx * LayoutItemStep.y);
+                        ImGui::SetCursorScreenPos(position);
 
                         ImGui::SetNextItemSelectionUserData(item_idx);
                         bool item_is_selected = Selection.Contains((ImGuiID)item_data->ID);
@@ -11071,7 +11071,7 @@ struct ExampleAssetsBrowser
                         // Because we use ImGuiMultiSelectFlags_BoxSelect2d, clipping vertical may occasionally be larger, so we coarse-clip our rendering as well.
                         if (item_is_visible)
                         {
-                            ImVec2 box_min(pos.x - 1, pos.y - 1);
+                            ImVec2 box_min(position.x - 1, position.y - 1);
                             ImVec2 box_max(box_min.x + LayoutItemSize.x + 2, box_min.y + LayoutItemSize.y + 2); // Dubious
                             draw_list->AddRectFilled(box_min, box_max, icon_bg_color); // Background color
                             if (ShowTypeOverlay && item_data->Type != 0)

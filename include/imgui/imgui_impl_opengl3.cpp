@@ -528,7 +528,7 @@ static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, int fb_wid
     GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxPos));
     GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxUV));
     GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxColor));
-    GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxPos,   2, GL_FLOAT,         GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, pos)));
+    GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxPos,   2, GL_FLOAT,         GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, position)));
     GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxUV,    2, GL_FLOAT,         GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, uv)));
     GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, col)));
 }

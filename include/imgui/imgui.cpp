@@ -1365,7 +1365,7 @@ static void             WindowSyncOwnedViewport(ImGuiWindow* window, ImGuiWindow
 static bool             UpdateTryMergeWindowIntoHostViewport(ImGuiWindow* window, ImGuiViewportP* host_viewport);
 static bool             UpdateTryMergeWindowIntoHostViewports(ImGuiWindow* window);
 static bool             GetWindowAlwaysWantOwnViewport(ImGuiWindow* window);
-static int              FindPlatformMonitorForPos(const ImVec2& pos);
+static int              FindPlatformMonitorForPos(const ImVec2& position);
 static int              FindPlatformMonitorForRect(const ImRect& r);
 static void             UpdateViewportPlatformMonitor(ImGuiViewportP* viewport);
 
@@ -1852,20 +1852,20 @@ void ImGuiIO::AddMousePosEvent(float x, float y)
         return;
 
     // Apply same flooring as UpdateMouseInputs()
-    ImVec2 pos((x > -FLT_MAX) ? ImFloor(x) : x, (y > -FLT_MAX) ? ImFloor(y) : y);
+    ImVec2 position((x > -FLT_MAX) ? ImFloor(x) : x, (y > -FLT_MAX) ? ImFloor(y) : y);
 
     // Filter duplicate
     const ImGuiInputEvent* latest_event = FindLatestInputEvent(&g, ImGuiInputEventType_MousePos);
     const ImVec2 latest_pos = latest_event ? ImVec2(latest_event->MousePos.PosX, latest_event->MousePos.PosY) : g.IO.MousePos;
-    if (latest_pos.x == pos.x && latest_pos.y == pos.y)
+    if (latest_pos.x == position.x && latest_pos.y == position.y)
         return;
 
     ImGuiInputEvent e;
     e.Type = ImGuiInputEventType_MousePos;
     e.Source = ImGuiInputSource_Mouse;
     e.EventId = g.InputEventsNextEventId++;
-    e.MousePos.PosX = pos.x;
-    e.MousePos.PosY = pos.y;
+    e.MousePos.PosX = position.x;
+    e.MousePos.PosY = position.y;
     e.MousePos.MouseSource = g.InputEventsNextMouseSource;
     g.InputEventsQueue.push_back(e);
 }
@@ -3258,7 +3258,7 @@ void ImGuiListClipper::Begin(int items_count, float items_height)
     if (++g.ClipperTempDataStacked > g.ClipperTempData.Size)
         g.ClipperTempData.resize(g.ClipperTempDataStacked, ImGuiListClipperData());
     ImGuiListClipperData* data = &g.ClipperTempData[g.ClipperTempDataStacked - 1];
-    data->Reset(this);
+    data->ResetCells(this);
     data->LossynessOffset = window->DC.CursorStartPosLossyness.y;
     TempData = data;
     StartSeekOffsetY = data->LossynessOffset;
@@ -3488,10 +3488,10 @@ bool ImGuiListClipper::Step()
 }
 
 // Generic helper, equivalent to old ImGui::CalcListClipping() but statelesss
-void ImGui::CalcClipRectVisibleItemsY(const ImRect& clip_rect, const ImVec2& pos, float items_height, int* out_visible_start, int* out_visible_end)
+void ImGui::CalcClipRectVisibleItemsY(const ImRect& clip_rect, const ImVec2& position, float items_height, int* out_visible_start, int* out_visible_end)
 {
-    *out_visible_start = ImMax((int)((clip_rect.Min.y - pos.y) / items_height), 0);
-    *out_visible_end = ImMax((int)ImCeil((clip_rect.Max.y - pos.y) / items_height), *out_visible_start);
+    *out_visible_start = ImMax((int)((clip_rect.Min.y - position.y) / items_height), 0);
+    *out_visible_end = ImMax((int)ImCeil((clip_rect.Max.y - position.y) / items_height), *out_visible_start);
 }
 
 //-----------------------------------------------------------------------------
@@ -3801,7 +3801,7 @@ const char* ImGui::FindRenderedTextEnd(const char* text, const char* text_end)
 
 // Internal ImGui functions to render text
 // RenderText***() functions calls ImDrawList::AddText() calls ImBitmapFont::RenderText()
-void ImGui::RenderText(ImVec2 pos, const char* text, const char* text_end, bool hide_text_after_hash)
+void ImGui::RenderText(ImVec2 position, const char* text, const char* text_end, bool hide_text_after_hash)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
@@ -3821,13 +3821,13 @@ void ImGui::RenderText(ImVec2 pos, const char* text, const char* text_end, bool 
 
     if (text != text_display_end)
     {
-        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColorU32(ImGuiCol_Text), text, text_display_end);
+        window->DrawList->AddText(g.Font, g.FontSize, position, GetColorU32(ImGuiCol_Text), text, text_display_end);
         if (g.LogEnabled)
-            LogRenderedText(&pos, text, text_display_end);
+            LogRenderedText(&position, text, text_display_end);
     }
 }
 
-void ImGui::RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end, float wrap_width)
+void ImGui::RenderTextWrapped(ImVec2 position, const char* text, const char* text_end, float wrap_width)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
@@ -3837,9 +3837,9 @@ void ImGui::RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end
 
     if (text != text_end)
     {
-        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColorU32(ImGuiCol_Text), text, text_end, wrap_width);
+        window->DrawList->AddText(g.Font, g.FontSize, position, GetColorU32(ImGuiCol_Text), text, text_end, wrap_width);
         if (g.LogEnabled)
-            LogRenderedText(&pos, text, text_end);
+            LogRenderedText(&position, text, text_end);
     }
 }
 
@@ -3851,28 +3851,28 @@ void ImGui::RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end
 void ImGui::RenderTextClippedEx(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_display_end, const ImVec2* text_size_if_known, const ImVec2& align, const ImRect* clip_rect)
 {
     // Perform CPU side clipping for single clipped element to avoid using scissor state
-    ImVec2 pos = pos_min;
+    ImVec2 position = pos_min;
     const ImVec2 text_size = text_size_if_known ? *text_size_if_known : CalcTextSize(text, text_display_end, false, 0.0f);
 
     const ImVec2* clip_min = clip_rect ? &clip_rect->Min : &pos_min;
     const ImVec2* clip_max = clip_rect ? &clip_rect->Max : &pos_max;
-    bool need_clipping = (pos.x + text_size.x >= clip_max->x) || (pos.y + text_size.y >= clip_max->y);
+    bool need_clipping = (position.x + text_size.x >= clip_max->x) || (position.y + text_size.y >= clip_max->y);
     if (clip_rect) // If we had no explicit clipping rectangle then pos==clip_min
-        need_clipping |= (pos.x < clip_min->x) || (pos.y < clip_min->y);
+        need_clipping |= (position.x < clip_min->x) || (position.y < clip_min->y);
 
     // Align whole block. We should defer that to the better rendering function when we'll have support for individual line alignment.
-    if (align.x > 0.0f) pos.x = ImMax(pos.x, pos.x + (pos_max.x - pos.x - text_size.x) * align.x);
-    if (align.y > 0.0f) pos.y = ImMax(pos.y, pos.y + (pos_max.y - pos.y - text_size.y) * align.y);
+    if (align.x > 0.0f) position.x = ImMax(position.x, position.x + (pos_max.x - position.x - text_size.x) * align.x);
+    if (align.y > 0.0f) position.y = ImMax(position.y, position.y + (pos_max.y - position.y - text_size.y) * align.y);
 
     // Render
     if (need_clipping)
     {
         ImVec4 fine_clip_rect(clip_min->x, clip_min->y, clip_max->x, clip_max->y);
-        draw_list->AddText(NULL, 0.0f, pos, GetColorU32(ImGuiCol_Text), text, text_display_end, 0.0f, &fine_clip_rect);
+        draw_list->AddText(NULL, 0.0f, position, GetColorU32(ImGuiCol_Text), text, text_display_end, 0.0f, &fine_clip_rect);
     }
     else
     {
-        draw_list->AddText(NULL, 0.0f, pos, GetColorU32(ImGuiCol_Text), text, text_display_end, 0.0f, NULL);
+        draw_list->AddText(NULL, 0.0f, position, GetColorU32(ImGuiCol_Text), text, text_display_end, 0.0f, NULL);
     }
 }
 
@@ -4017,22 +4017,22 @@ void ImGui::RenderMouseCursor(ImVec2 base_pos, float base_scale, ImGuiMouseCurso
         ImVec2 offset, size, uv[4];
         if (!ImFontAtlasGetMouseCursorTexData(font_atlas, mouse_cursor, &offset, &size, &uv[0], &uv[2]))
             continue;
-        const ImVec2 pos = base_pos - offset;
+        const ImVec2 position = base_pos - offset;
         const float scale = base_scale * viewport->DpiScale;
-        if (!viewport->GetMainRect().Overlaps(ImRect(pos, pos + ImVec2(size.x + 2, size.y + 2) * scale)))
+        if (!viewport->GetMainRect().Overlaps(ImRect(position, position + ImVec2(size.x + 2, size.y + 2) * scale)))
             continue;
         ImDrawList* draw_list = GetForegroundDrawList(viewport);
         ImTextureRef tex_ref = font_atlas->TexRef;
         draw_list->PushTexture(tex_ref);
-        draw_list->AddImage(tex_ref, pos + ImVec2(1, 0) * scale, pos + (ImVec2(1, 0) + size) * scale, uv[2], uv[3], col_shadow);
-        draw_list->AddImage(tex_ref, pos + ImVec2(2, 0) * scale, pos + (ImVec2(2, 0) + size) * scale, uv[2], uv[3], col_shadow);
-        draw_list->AddImage(tex_ref, pos,                        pos + size * scale,                  uv[2], uv[3], col_border);
-        draw_list->AddImage(tex_ref, pos,                        pos + size * scale,                  uv[0], uv[1], col_fill);
+        draw_list->AddImage(tex_ref, position + ImVec2(1, 0) * scale, position + (ImVec2(1, 0) + size) * scale, uv[2], uv[3], col_shadow);
+        draw_list->AddImage(tex_ref, position + ImVec2(2, 0) * scale, position + (ImVec2(2, 0) + size) * scale, uv[2], uv[3], col_shadow);
+        draw_list->AddImage(tex_ref, position,                        position + size * scale,                  uv[2], uv[3], col_border);
+        draw_list->AddImage(tex_ref, position,                        position + size * scale,                  uv[0], uv[1], col_fill);
         if (mouse_cursor == ImGuiMouseCursor_Wait || mouse_cursor == ImGuiMouseCursor_Progress)
         {
             float a_min = ImFmod((float)g.Time * 5.0f, 2.0f * IM_PI);
             float a_max = a_min + IM_PI * 1.65f;
-            draw_list->PathArcTo(pos + ImVec2(14, -1) * scale, 6.0f * scale, a_min, a_max);
+            draw_list->PathArcTo(position + ImVec2(14, -1) * scale, 6.0f * scale, a_min, a_max);
             draw_list->PathStroke(col_fill, ImDrawFlags_None, 3.0f * scale);
         }
         draw_list->PopTexture();
@@ -5047,7 +5047,7 @@ static void ImGui::SetLastItemDataForChildWindowItem(ImGuiWindow* window, const 
     SetLastItemData(window->ChildId, g.CurrentItemFlags, window->DC.ChildItemStatusFlags, rect);
 }
 
-float ImGui::CalcWrapWidthForPos(const ImVec2& pos, float wrap_pos_x)
+float ImGui::CalcWrapWidthForPos(const ImVec2& position, float wrap_pos_x)
 {
     if (wrap_pos_x < 0.0f)
         return 0.0f;
@@ -5068,7 +5068,7 @@ float ImGui::CalcWrapWidthForPos(const ImVec2& pos, float wrap_pos_x)
         wrap_pos_x += window->Pos.x - window->Scroll.x; // wrap_pos_x is provided is window local space
     }
 
-    return ImMax(wrap_pos_x - pos.x, 1.0f);
+    return ImMax(wrap_pos_x - position.x, 1.0f);
 }
 
 // IM_ALLOC() == ImGui::MemAlloc()
@@ -5320,13 +5320,13 @@ void ImGui::UpdateMouseMovingWindowNewFrame()
         const bool window_disappeared = (!moving_window->WasActive && !moving_window->Active);
         if (g.IO.MouseDown[0] && IsMousePosValid(&g.IO.MousePos) && !window_disappeared)
         {
-            ImVec2 pos = g.IO.MousePos - g.ActiveIdClickOffset;
-            if (moving_window->Pos.x != pos.x || moving_window->Pos.y != pos.y)
+            ImVec2 position = g.IO.MousePos - g.ActiveIdClickOffset;
+            if (moving_window->Pos.x != position.x || moving_window->Pos.y != position.y)
             {
-                SetWindowPos(moving_window, pos, ImGuiCond_Always);
+                SetWindowPos(moving_window, position, ImGuiCond_Always);
                 if (moving_window->Viewport && moving_window->ViewportOwned) // Synchronize viewport immediately because some overlays may relies on clipping rectangle before we Begin() into the window.
                 {
-                    moving_window->Viewport->Pos = pos;
+                    moving_window->Viewport->Pos = position;
                     moving_window->Viewport->UpdateWorkRect();
                 }
             }
@@ -6295,7 +6295,7 @@ ImVec2 ImGui::CalcTextSize(const char* text, const char* text_end, bool hide_tex
 //   with SetWindowPos() and not SetNextWindowPos() will have that rectangle lagging by a frame at the time FindHoveredWindow() is
 //   called, aka before the next Begin(). Moving window isn't affected.
 // - The 'find_first_and_in_any_viewport = true' mode is only used by TestEngine. It is simpler to maintain here.
-void ImGui::FindHoveredWindowEx(const ImVec2& pos, bool find_first_and_in_any_viewport, ImGuiWindow** out_hovered_window, ImGuiWindow** out_hovered_window_under_moving_window)
+void ImGui::FindHoveredWindowEx(const ImVec2& position, bool find_first_and_in_any_viewport, ImGuiWindow** out_hovered_window, ImGuiWindow** out_hovered_window_under_moving_window)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* hovered_window = NULL;
@@ -6327,7 +6327,7 @@ void ImGui::FindHoveredWindowEx(const ImVec2& pos, bool find_first_and_in_any_vi
 
         // Using the clipped AABB, a child window will typically be clipped by its parent (not always)
         ImVec2 hit_padding = (window->Flags & (ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) ? padding_regular : padding_for_resize;
-        if (!window->OuterRectClipped.ContainsWithPad(pos, hit_padding))
+        if (!window->OuterRectClipped.ContainsWithPad(position, hit_padding))
             continue;
 
         // Support for one rectangular hole in any given window
@@ -6336,7 +6336,7 @@ void ImGui::FindHoveredWindowEx(const ImVec2& pos, bool find_first_and_in_any_vi
         {
             ImVec2 hole_pos(window->Pos.x + (float)window->HitTestHoleOffset.x, window->Pos.y + (float)window->HitTestHoleOffset.y);
             ImVec2 hole_size((float)window->HitTestHoleSize.x, (float)window->HitTestHoleSize.y);
-            if (ImRect(hole_pos, hole_pos + hole_size).Contains(pos))
+            if (ImRect(hole_pos, hole_pos + hole_size).Contains(position))
                 continue;
         }
 
@@ -8910,7 +8910,7 @@ ImVec2 ImGui::GetWindowPos()
     return window->Pos;
 }
 
-void ImGui::SetWindowPos(ImGuiWindow* window, const ImVec2& pos, ImGuiCond cond)
+void ImGui::SetWindowPos(ImGuiWindow* window, const ImVec2& position, ImGuiCond cond)
 {
     // Test condition (NB: bit 0 is always true) and clear flags for next time
     if (cond && (window->SetWindowPosAllowFlags & cond) == 0)
@@ -8922,7 +8922,7 @@ void ImGui::SetWindowPos(ImGuiWindow* window, const ImVec2& pos, ImGuiCond cond)
 
     // Set
     const ImVec2 old_pos = window->Pos;
-    window->Pos = ImTrunc(pos);
+    window->Pos = ImTrunc(position);
     ImVec2 offset = window->Pos - old_pos;
     if (offset.x == 0.0f && offset.y == 0.0f)
         return;
@@ -8934,16 +8934,16 @@ void ImGui::SetWindowPos(ImGuiWindow* window, const ImVec2& pos, ImGuiCond cond)
     window->DC.CursorStartPos += offset;
 }
 
-void ImGui::SetWindowPos(const ImVec2& pos, ImGuiCond cond)
+void ImGui::SetWindowPos(const ImVec2& position, ImGuiCond cond)
 {
     ImGuiWindow* window = GetCurrentWindowRead();
-    SetWindowPos(window, pos, cond);
+    SetWindowPos(window, position, cond);
 }
 
-void ImGui::SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond)
+void ImGui::SetWindowPos(const char* name, const ImVec2& position, ImGuiCond cond)
 {
     if (ImGuiWindow* window = FindWindowByName(name))
-        SetWindowPos(window, pos, cond);
+        SetWindowPos(window, position, cond);
 }
 
 ImVec2 ImGui::GetWindowSize()
@@ -9005,11 +9005,11 @@ void ImGui::SetWindowCollapsed(ImGuiWindow* window, bool collapsed, ImGuiCond co
     window->WantCollapseToggle = (window->Collapsed != collapsed);
 }
 
-void ImGui::SetWindowHitTestHole(ImGuiWindow* window, const ImVec2& pos, const ImVec2& size)
+void ImGui::SetWindowHitTestHole(ImGuiWindow* window, const ImVec2& position, const ImVec2& size)
 {
     IM_ASSERT(window->HitTestHoleSize.x == 0);     // We don't support multiple holes/hit test filters
     window->HitTestHoleSize = ImVec2ih(size);
-    window->HitTestHoleOffset = ImVec2ih(pos - window->Pos);
+    window->HitTestHoleOffset = ImVec2ih(position - window->Pos);
 }
 
 void ImGui::SetWindowHiddenAndSkipItemsForCurrentFrame(ImGuiWindow* window)
@@ -9041,12 +9041,12 @@ void ImGui::SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond)
         SetWindowCollapsed(window, collapsed, cond);
 }
 
-void ImGui::SetNextWindowPos(const ImVec2& pos, ImGuiCond cond, const ImVec2& pivot)
+void ImGui::SetNextWindowPos(const ImVec2& position, ImGuiCond cond, const ImVec2& pivot)
 {
     ImGuiContext& g = *GImGui;
     IM_ASSERT(cond == 0 || ImIsPowerOfTwo(cond)); // Make sure the user doesn't attempt to combine multiple condition flags.
     g.NextWindowData.HasFlags |= ImGuiNextWindowDataFlags_HasPos;
-    g.NextWindowData.PosVal = pos;
+    g.NextWindowData.PosVal = position;
     g.NextWindowData.PosPivotVal = pivot;
     g.NextWindowData.PosCond = cond ? cond : ImGuiCond_Always;
     g.NextWindowData.PosUndock = true;
@@ -10464,10 +10464,10 @@ ImVec2 ImGui::GetMousePos()
 
 // This is called TeleportMousePos() and not SetMousePos() to emphasis that setting MousePosPrev will effectively clear mouse delta as well.
 // It is expected you only call this if (io.BackendFlags & ImGuiBackendFlags_HasSetMousePos) is set and supported by backend.
-void ImGui::TeleportMousePos(const ImVec2& pos)
+void ImGui::TeleportMousePos(const ImVec2& position)
 {
     ImGuiContext& g = *GImGui;
-    g.IO.MousePos = g.IO.MousePosPrev = pos;
+    g.IO.MousePos = g.IO.MousePosPrev = position;
     g.IO.MouseDelta = ImVec2(0.0f, 0.0f);
     g.IO.WantSetMousePos = true;
     //IMGUI_DEBUG_LOG_IO("TeleportMousePos: (%.1f,%.1f)\n", io.MousePos.x, io.MousePos.y);
@@ -11956,10 +11956,10 @@ ImVec2 ImGui::GetCursorScreenPos()
     return window->DC.CursorPos;
 }
 
-void ImGui::SetCursorScreenPos(const ImVec2& pos)
+void ImGui::SetCursorScreenPos(const ImVec2& position)
 {
     ImGuiWindow* window = GetCurrentWindow();
-    window->DC.CursorPos = pos;
+    window->DC.CursorPos = position;
     //window->DC.CursorMaxPos = ImMax(window->DC.CursorMaxPos, window->DC.CursorPos);
     window->DC.IsSetPos = true;
 }
@@ -13120,15 +13120,15 @@ ImVec2 ImGui::FindBestWindowPosForPopupEx(const ImVec2& ref_pos, const ImVec2& s
             const ImGuiDir dir = (n == -1) ? *last_dir : dir_prefered_order[n];
             if (n != -1 && dir == *last_dir) // Already tried this direction?
                 continue;
-            ImVec2 pos;
-            if (dir == ImGuiDir_Down)  pos = ImVec2(r_avoid.Min.x, r_avoid.Max.y);          // Below, Toward Right (default)
-            if (dir == ImGuiDir_Right) pos = ImVec2(r_avoid.Min.x, r_avoid.Min.y - size.y); // Above, Toward Right
-            if (dir == ImGuiDir_Left)  pos = ImVec2(r_avoid.Max.x - size.x, r_avoid.Max.y); // Below, Toward Left
-            if (dir == ImGuiDir_Up)    pos = ImVec2(r_avoid.Max.x - size.x, r_avoid.Min.y - size.y); // Above, Toward Left
-            if (!r_outer.Contains(ImRect(pos, pos + size)))
+            ImVec2 position;
+            if (dir == ImGuiDir_Down)  position = ImVec2(r_avoid.Min.x, r_avoid.Max.y);          // Below, Toward Right (default)
+            if (dir == ImGuiDir_Right) position = ImVec2(r_avoid.Min.x, r_avoid.Min.y - size.y); // Above, Toward Right
+            if (dir == ImGuiDir_Left)  position = ImVec2(r_avoid.Max.x - size.x, r_avoid.Max.y); // Below, Toward Left
+            if (dir == ImGuiDir_Up)    position = ImVec2(r_avoid.Max.x - size.x, r_avoid.Min.y - size.y); // Above, Toward Left
+            if (!r_outer.Contains(ImRect(position, position + size)))
                 continue;
             *last_dir = dir;
-            return pos;
+            return position;
         }
     }
 
@@ -13152,16 +13152,16 @@ ImVec2 ImGui::FindBestWindowPosForPopupEx(const ImVec2& ref_pos, const ImVec2& s
             if (avail_h < size.y && (dir == ImGuiDir_Up || dir == ImGuiDir_Down))
                 continue;
 
-            ImVec2 pos;
-            pos.x = (dir == ImGuiDir_Left) ? r_avoid.Min.x - size.x : (dir == ImGuiDir_Right) ? r_avoid.Max.x : base_pos_clamped.x;
-            pos.y = (dir == ImGuiDir_Up) ? r_avoid.Min.y - size.y : (dir == ImGuiDir_Down) ? r_avoid.Max.y : base_pos_clamped.y;
+            ImVec2 position;
+            position.x = (dir == ImGuiDir_Left) ? r_avoid.Min.x - size.x : (dir == ImGuiDir_Right) ? r_avoid.Max.x : base_pos_clamped.x;
+            position.y = (dir == ImGuiDir_Up) ? r_avoid.Min.y - size.y : (dir == ImGuiDir_Down) ? r_avoid.Max.y : base_pos_clamped.y;
 
             // Clamp top-left corner of popup
-            pos.x = ImMax(pos.x, r_outer.Min.x);
-            pos.y = ImMax(pos.y, r_outer.Min.y);
+            position.x = ImMax(position.x, r_outer.Min.x);
+            position.y = ImMax(position.y, r_outer.Min.y);
 
             *last_dir = dir;
-            return pos;
+            return position;
         }
     }
 
@@ -13173,10 +13173,10 @@ ImVec2 ImGui::FindBestWindowPosForPopupEx(const ImVec2& ref_pos, const ImVec2& s
         return ref_pos + ImVec2(2, 2);
 
     // Otherwise try to keep within display
-    ImVec2 pos = ref_pos;
-    pos.x = ImMax(ImMin(pos.x + size.x, r_outer.Max.x) - size.x, r_outer.Min.x);
-    pos.y = ImMax(ImMin(pos.y + size.y, r_outer.Max.y) - size.y, r_outer.Min.y);
-    return pos;
+    ImVec2 position = ref_pos;
+    position.x = ImMax(ImMin(position.x + size.x, r_outer.Max.x) - size.x, r_outer.Min.x);
+    position.y = ImMax(ImMin(position.y + size.y, r_outer.Max.y) - size.y, r_outer.Min.y);
+    return position;
 }
 
 // Note that this is used for popups, which can overlap the non work-area of individual viewports.
@@ -14182,11 +14182,11 @@ static ImVec2 ImGui::NavCalcPreferredRefPos()
             ImVec2 next_scroll = CalcNextScrollFromScrollTargetAndClamp(window);
             ref_rect.Translate(window->Scroll - next_scroll);
         }
-        ImVec2 pos = ImVec2(ref_rect.Min.x + ImMin(g.Style.FramePadding.x * 4, ref_rect.GetWidth()), ref_rect.Max.y - ImMin(g.Style.FramePadding.y, ref_rect.GetHeight()));
+        ImVec2 position = ImVec2(ref_rect.Min.x + ImMin(g.Style.FramePadding.x * 4, ref_rect.GetWidth()), ref_rect.Max.y - ImMin(g.Style.FramePadding.y, ref_rect.GetHeight()));
         if (window != NULL)
             if (ImGuiViewport* viewport = window->Viewport)
-                pos = ImClamp(pos, viewport->Pos, viewport->Pos + viewport->Size);
-        return ImTrunc(pos); // ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
+                position = ImClamp(position, viewport->Pos, viewport->Pos + viewport->Size);
+        return ImTrunc(position); // ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     }
 }
 
@@ -16790,7 +16790,7 @@ static void ImGui::UpdateViewportsEndFrame()
 }
 
 // FIXME: We should ideally refactor the system to call this every frame (we currently don't)
-ImGuiViewportP* ImGui::AddUpdateViewport(ImGuiWindow* window, ImGuiID id, const ImVec2& pos, const ImVec2& size, ImGuiViewportFlags flags)
+ImGuiViewportP* ImGui::AddUpdateViewport(ImGuiWindow* window, ImGuiID id, const ImVec2& position, const ImVec2& size, ImGuiViewportFlags flags)
 {
     ImGuiContext& g = *GImGui;
     IM_ASSERT(id != 0);
@@ -16814,7 +16814,7 @@ ImGuiViewportP* ImGui::AddUpdateViewport(ImGuiWindow* window, ImGuiID id, const 
         ImVec2 prev_pos = viewport->Pos;
         ImVec2 prev_size = viewport->Size;
         if (!viewport->PlatformRequestMove || viewport->ID == IMGUI_VIEWPORT_DEFAULT_ID)
-            viewport->Pos = pos;
+            viewport->Pos = position;
         if (!viewport->PlatformRequestResize || viewport->ID == IMGUI_VIEWPORT_DEFAULT_ID)
             viewport->Size = size;
         viewport->Flags = flags | (viewport->Flags & (ImGuiViewportFlags_IsMinimized | ImGuiViewportFlags_IsFocused)); // Preserve existing flags
@@ -16827,7 +16827,7 @@ ImGuiViewportP* ImGui::AddUpdateViewport(ImGuiWindow* window, ImGuiID id, const 
         viewport = IM_NEW(ImGuiViewportP)();
         viewport->ID = id;
         viewport->Idx = g.Viewports.Size;
-        viewport->Pos = viewport->LastPos = pos;
+        viewport->Pos = viewport->LastPos = position;
         viewport->Size = viewport->LastSize = size;
         viewport->Flags = flags;
         UpdateViewportPlatformMonitor(viewport);
@@ -17255,13 +17255,13 @@ void ImGui::RenderPlatformWindowsDefault(void* platform_render_arg, void* render
     }
 }
 
-static int ImGui::FindPlatformMonitorForPos(const ImVec2& pos)
+static int ImGui::FindPlatformMonitorForPos(const ImVec2& position)
 {
     ImGuiContext& g = *GImGui;
     for (int monitor_n = 0; monitor_n < g.PlatformIO.Monitors.Size; monitor_n++)
     {
         const ImGuiPlatformMonitor& monitor = g.PlatformIO.Monitors[monitor_n];
-        if (ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize).Contains(pos))
+        if (ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize).Contains(position))
             return monitor_n;
     }
     return -1;
@@ -17537,9 +17537,9 @@ namespace ImGui
     // ImGuiDockNode tree manipulations
     static void             DockNodeTreeSplit(ImGuiContext* ctx, ImGuiDockNode* parent_node, ImGuiAxis split_axis, int split_first_child, float split_ratio, ImGuiDockNode* new_node);
     static void             DockNodeTreeMerge(ImGuiContext* ctx, ImGuiDockNode* parent_node, ImGuiDockNode* merge_lead_child);
-    static void             DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 pos, ImVec2 size, ImGuiDockNode* only_write_to_single_node = NULL);
+    static void             DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 position, ImVec2 size, ImGuiDockNode* only_write_to_single_node = NULL);
     static void             DockNodeTreeUpdateSplitter(ImGuiDockNode* node);
-    static ImGuiDockNode*   DockNodeTreeFindVisibleNodeByPos(ImGuiDockNode* node, ImVec2 pos);
+    static ImGuiDockNode*   DockNodeTreeFindVisibleNodeByPos(ImGuiDockNode* node, ImVec2 position);
     static ImGuiDockNode*   DockNodeTreeFindFallbackLeafNode(ImGuiDockNode* node);
 
     // Settings
@@ -17809,7 +17809,7 @@ static void ImGui::DockContextPruneUnusedSettingsNodes(ImGuiContext* ctx)
     IM_ASSERT(g.Windows.Size == 0);
 
     ImPool<ImGuiDockContextPruneNodeData> pool;
-    pool.Reserve(dc->NodesSettings.Size);
+    pool.ReserveNodes(dc->NodesSettings.Size);
 
     // Count child nodes and compute RootID
     for (int settings_n = 0; settings_n < dc->NodesSettings.Size; settings_n++)
@@ -19881,7 +19881,7 @@ void ImGui::DockNodeTreeMerge(ImGuiContext* ctx, ImGuiDockNode* parent_node, ImG
 
 // Update Pos/Size for a node hierarchy (don't affect child Windows yet)
 // (Depth-first, Pre-Order)
-void ImGui::DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 pos, ImVec2 size, ImGuiDockNode* only_write_to_single_node)
+void ImGui::DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 position, ImVec2 size, ImGuiDockNode* only_write_to_single_node)
 {
     // During the regular dock node update we write to all nodes.
     // 'only_write_to_single_node' is only set when turning a node visible mid-frame and we need its size right-away.
@@ -19889,7 +19889,7 @@ void ImGui::DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 pos, ImVec2 si
     const bool write_to_node = only_write_to_single_node == NULL || only_write_to_single_node == node;
     if (write_to_node)
     {
-        node->Pos = pos;
+        node->Pos = position;
         node->Size = size;
     }
 
@@ -19898,7 +19898,7 @@ void ImGui::DockNodeTreeUpdatePosSize(ImGuiDockNode* node, ImVec2 pos, ImVec2 si
 
     ImGuiDockNode* child_0 = node->ChildNodes[0];
     ImGuiDockNode* child_1 = node->ChildNodes[1];
-    ImVec2 child_0_pos = pos, child_1_pos = pos;
+    ImVec2 child_0_pos = position, child_1_pos = position;
     ImVec2 child_0_size = size, child_1_size = size;
 
     const bool child_0_is_toward_single_node = (only_write_to_single_node != NULL && DockNodeIsInHierarchyOf(only_write_to_single_node, child_0));
@@ -20120,7 +20120,7 @@ ImGuiDockNode* ImGui::DockNodeTreeFindFallbackLeafNode(ImGuiDockNode* node)
     return NULL;
 }
 
-ImGuiDockNode* ImGui::DockNodeTreeFindVisibleNodeByPos(ImGuiDockNode* node, ImVec2 pos)
+ImGuiDockNode* ImGui::DockNodeTreeFindVisibleNodeByPos(ImGuiDockNode* node, ImVec2 position)
 {
     if (!node->IsVisible)
         return NULL;
@@ -20128,15 +20128,15 @@ ImGuiDockNode* ImGui::DockNodeTreeFindVisibleNodeByPos(ImGuiDockNode* node, ImVe
     const float dock_spacing = 0.0f;// g.Style.ItemInnerSpacing.x; // FIXME: Relation to DOCKING_SPLITTER_SIZE?
     ImRect r(node->Pos, node->Pos + node->Size);
     r.Expand(dock_spacing * 0.5f);
-    bool inside = r.Contains(pos);
+    bool inside = r.Contains(position);
     if (!inside)
         return NULL;
 
     if (node->IsLeafNode())
         return node;
-    if (ImGuiDockNode* hovered_node = DockNodeTreeFindVisibleNodeByPos(node->ChildNodes[0], pos))
+    if (ImGuiDockNode* hovered_node = DockNodeTreeFindVisibleNodeByPos(node->ChildNodes[0], position))
         return hovered_node;
-    if (ImGuiDockNode* hovered_node = DockNodeTreeFindVisibleNodeByPos(node->ChildNodes[1], pos))
+    if (ImGuiDockNode* hovered_node = DockNodeTreeFindVisibleNodeByPos(node->ChildNodes[1], position))
         return hovered_node;
 
     // This means we are hovering over the splitter/spacing of a parent node
@@ -20397,13 +20397,13 @@ ImGuiDockNode* ImGui::DockBuilderGetNode(ImGuiID node_id)
     return DockContextFindNodeByID(&g, node_id);
 }
 
-void ImGui::DockBuilderSetNodePos(ImGuiID node_id, ImVec2 pos)
+void ImGui::DockBuilderSetNodePos(ImGuiID node_id, ImVec2 position)
 {
     ImGuiContext& g = *GImGui;
     ImGuiDockNode* node = DockContextFindNodeByID(&g, node_id);
     if (node == NULL)
         return;
-    node->Pos = pos;
+    node->Pos = position;
     node->AuthorityForPos = ImGuiDataAuthority_DockNode;
 }
 
@@ -22655,9 +22655,9 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         p += ImFormatString(p, buf + IM_ARRAYSIZE(buf) - p, "SizeRef: (%.0f, %.0f)\n", node->SizeRef.x, node->SizeRef.y);
         int depth = DockNodeGetDepth(node);
         overlay_draw_list->AddRect(node->Pos + ImVec2(3, 3) * (float)depth, node->Pos + node->Size - ImVec2(3, 3) * (float)depth, IM_COL32(200, 100, 100, 255));
-        ImVec2 pos = node->Pos + ImVec2(3, 3) * (float)depth;
-        overlay_draw_list->AddRectFilled(pos - ImVec2(1, 1), pos + CalcTextSize(buf) + ImVec2(1, 1), IM_COL32(200, 100, 100, 255));
-        overlay_draw_list->AddText(NULL, 0.0f, pos, IM_COL32(255, 255, 255, 255), buf);
+        ImVec2 position = node->Pos + ImVec2(3, 3) * (float)depth;
+        overlay_draw_list->AddRectFilled(position - ImVec2(1, 1), position + CalcTextSize(buf) + ImVec2(1, 1), IM_COL32(200, 100, 100, 255));
+        overlay_draw_list->AddText(NULL, 0.0f, position, IM_COL32(255, 255, 255, 255), buf);
     }
 #endif // #ifdef IMGUI_HAS_DOCK
 
@@ -22696,10 +22696,10 @@ bool ImGui::DebugBreakButton(const char* label, const char* description_of_locat
     ImGuiContext& g = *GImGui;
     const ImGuiID id = window->GetID(label);
     const ImVec2 label_size = CalcTextSize(label, NULL, true);
-    ImVec2 pos = window->DC.CursorPos + ImVec2(0.0f, window->DC.CurrLineTextBaseOffset);
+    ImVec2 position = window->DC.CursorPos + ImVec2(0.0f, window->DC.CurrLineTextBaseOffset);
     ImVec2 size = ImVec2(label_size.x + g.Style.FramePadding.x * 2.0f, label_size.y);
 
-    const ImRect bb(pos, pos + size);
+    const ImRect bb(position, position + size);
     ItemSize(size, 0.0f);
     if (!ItemAdd(bb, id))
         return false;
@@ -22876,7 +22876,7 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, ImGuiViewportP* viewport, con
         {
             ImVec2 triangle[3];
             for (int n = 0; n < 3; n++, idx_n++)
-                triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos;
+                triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].position;
             total_area += ImTriangleArea(triangle[0], triangle[1], triangle[2]);
         }
 
@@ -22897,9 +22897,9 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, ImGuiViewportP* viewport, con
                 for (int n = 0; n < 3; n++, idx_i++)
                 {
                     const ImDrawVert& v = vtx_buffer[idx_buffer ? idx_buffer[idx_i] : idx_i];
-                    triangle[n] = v.pos;
+                    triangle[n] = v.position;
                     buf_p += ImFormatString(buf_p, buf_end - buf_p, "%s %04d: pos (%8.2f,%8.2f), uv (%.6f,%.6f), col %08X\n",
-                        (n == 0) ? "Vert:" : "     ", idx_i, v.pos.x, v.pos.y, v.uv.x, v.uv.y, v.col);
+                        (n == 0) ? "Vert:" : "     ", idx_i, v.position.x, v.position.y, v.uv.x, v.uv.y, v.col);
                 }
 
                 Selectable(buf, false);
@@ -22933,7 +22933,7 @@ void ImGui::DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList* out_draw_list, co
 
         ImVec2 triangle[3];
         for (int n = 0; n < 3; n++, idx_n++)
-            vtxs_rect.Add((triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos));
+            vtxs_rect.Add((triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].position));
         if (show_mesh)
             out_draw_list->AddPolyline(triangle, 3, IM_COL32(255, 255, 0, 255), ImDrawFlags_Closed, 1.0f); // In yellow: mesh triangles
     }
@@ -23433,8 +23433,8 @@ static void SameLineOrWrap(const ImVec2& size)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
-    ImVec2 pos(window->DC.CursorPosPrevLine.x + g.Style.ItemSpacing.x, window->DC.CursorPosPrevLine.y);
-    if (window->WorkRect.Contains(ImRect(pos, pos + size)))
+    ImVec2 position(window->DC.CursorPosPrevLine.x + g.Style.ItemSpacing.x, window->DC.CursorPosPrevLine.y);
+    if (window->WorkRect.Contains(ImRect(position, position + size)))
         ImGui::SameLine();
 }
 
@@ -23565,9 +23565,9 @@ void ImGui::DebugDrawCursorPos(ImU32 col)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
-    ImVec2 pos = window->DC.CursorPos;
-    window->DrawList->AddLine(ImVec2(pos.x, pos.y - 3.0f), ImVec2(pos.x, pos.y + 4.0f), col, 1.0f);
-    window->DrawList->AddLine(ImVec2(pos.x - 3.0f, pos.y), ImVec2(pos.x + 4.0f, pos.y), col, 1.0f);
+    ImVec2 position = window->DC.CursorPos;
+    window->DrawList->AddLine(ImVec2(position.x, position.y - 3.0f), ImVec2(position.x, position.y + 4.0f), col, 1.0f);
+    window->DrawList->AddLine(ImVec2(position.x - 3.0f, position.y), ImVec2(position.x + 4.0f, position.y), col, 1.0f);
 }
 
 // Draw a 10px wide rectangle around CurposPos.x using Line Y1/Y2 in current window's DrawList

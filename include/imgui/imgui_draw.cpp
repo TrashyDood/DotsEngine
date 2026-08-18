@@ -756,10 +756,10 @@ void ImDrawList::PrimRect(const ImVec2& a, const ImVec2& c, ImU32 col)
     ImDrawIdx idx = (ImDrawIdx)_VtxCurrentIdx;
     _IdxWritePtr[0] = idx; _IdxWritePtr[1] = (ImDrawIdx)(idx+1); _IdxWritePtr[2] = (ImDrawIdx)(idx+2);
     _IdxWritePtr[3] = idx; _IdxWritePtr[4] = (ImDrawIdx)(idx+2); _IdxWritePtr[5] = (ImDrawIdx)(idx+3);
-    _VtxWritePtr[0].pos = a; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
-    _VtxWritePtr[1].pos = b; _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col;
-    _VtxWritePtr[2].pos = c; _VtxWritePtr[2].uv = uv; _VtxWritePtr[2].col = col;
-    _VtxWritePtr[3].pos = d; _VtxWritePtr[3].uv = uv; _VtxWritePtr[3].col = col;
+    _VtxWritePtr[0].position = a; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
+    _VtxWritePtr[1].position = b; _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col;
+    _VtxWritePtr[2].position = c; _VtxWritePtr[2].uv = uv; _VtxWritePtr[2].col = col;
+    _VtxWritePtr[3].position = d; _VtxWritePtr[3].uv = uv; _VtxWritePtr[3].col = col;
     _VtxWritePtr += 4;
     _VtxCurrentIdx += 4;
     _IdxWritePtr += 6;
@@ -771,10 +771,10 @@ void ImDrawList::PrimRectUV(const ImVec2& a, const ImVec2& c, const ImVec2& uv_a
     ImDrawIdx idx = (ImDrawIdx)_VtxCurrentIdx;
     _IdxWritePtr[0] = idx; _IdxWritePtr[1] = (ImDrawIdx)(idx+1); _IdxWritePtr[2] = (ImDrawIdx)(idx+2);
     _IdxWritePtr[3] = idx; _IdxWritePtr[4] = (ImDrawIdx)(idx+2); _IdxWritePtr[5] = (ImDrawIdx)(idx+3);
-    _VtxWritePtr[0].pos = a; _VtxWritePtr[0].uv = uv_a; _VtxWritePtr[0].col = col;
-    _VtxWritePtr[1].pos = b; _VtxWritePtr[1].uv = uv_b; _VtxWritePtr[1].col = col;
-    _VtxWritePtr[2].pos = c; _VtxWritePtr[2].uv = uv_c; _VtxWritePtr[2].col = col;
-    _VtxWritePtr[3].pos = d; _VtxWritePtr[3].uv = uv_d; _VtxWritePtr[3].col = col;
+    _VtxWritePtr[0].position = a; _VtxWritePtr[0].uv = uv_a; _VtxWritePtr[0].col = col;
+    _VtxWritePtr[1].position = b; _VtxWritePtr[1].uv = uv_b; _VtxWritePtr[1].col = col;
+    _VtxWritePtr[2].position = c; _VtxWritePtr[2].uv = uv_c; _VtxWritePtr[2].col = col;
+    _VtxWritePtr[3].position = d; _VtxWritePtr[3].uv = uv_d; _VtxWritePtr[3].col = col;
     _VtxWritePtr += 4;
     _VtxCurrentIdx += 4;
     _IdxWritePtr += 6;
@@ -785,10 +785,10 @@ void ImDrawList::PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, c
     ImDrawIdx idx = (ImDrawIdx)_VtxCurrentIdx;
     _IdxWritePtr[0] = idx; _IdxWritePtr[1] = (ImDrawIdx)(idx+1); _IdxWritePtr[2] = (ImDrawIdx)(idx+2);
     _IdxWritePtr[3] = idx; _IdxWritePtr[4] = (ImDrawIdx)(idx+2); _IdxWritePtr[5] = (ImDrawIdx)(idx+3);
-    _VtxWritePtr[0].pos = a; _VtxWritePtr[0].uv = uv_a; _VtxWritePtr[0].col = col;
-    _VtxWritePtr[1].pos = b; _VtxWritePtr[1].uv = uv_b; _VtxWritePtr[1].col = col;
-    _VtxWritePtr[2].pos = c; _VtxWritePtr[2].uv = uv_c; _VtxWritePtr[2].col = col;
-    _VtxWritePtr[3].pos = d; _VtxWritePtr[3].uv = uv_d; _VtxWritePtr[3].col = col;
+    _VtxWritePtr[0].position = a; _VtxWritePtr[0].uv = uv_a; _VtxWritePtr[0].col = col;
+    _VtxWritePtr[1].position = b; _VtxWritePtr[1].uv = uv_b; _VtxWritePtr[1].col = col;
+    _VtxWritePtr[2].position = c; _VtxWritePtr[2].uv = uv_c; _VtxWritePtr[2].col = col;
+    _VtxWritePtr[3].position = d; _VtxWritePtr[3].uv = uv_d; _VtxWritePtr[3].col = col;
     _VtxWritePtr += 4;
     _VtxCurrentIdx += 4;
     _IdxWritePtr += 6;
@@ -937,8 +937,8 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
                 ImVec2 tex_uv1(tex_uvs.z, tex_uvs.w);
                 for (int i = 0; i < points_count; i++)
                 {
-                    _VtxWritePtr[0].pos = temp_points[i * 2 + 0]; _VtxWritePtr[0].uv = tex_uv0; _VtxWritePtr[0].col = col; // Left-side outer edge
-                    _VtxWritePtr[1].pos = temp_points[i * 2 + 1]; _VtxWritePtr[1].uv = tex_uv1; _VtxWritePtr[1].col = col; // Right-side outer edge
+                    _VtxWritePtr[0].position = temp_points[i * 2 + 0]; _VtxWritePtr[0].uv = tex_uv0; _VtxWritePtr[0].col = col; // Left-side outer edge
+                    _VtxWritePtr[1].position = temp_points[i * 2 + 1]; _VtxWritePtr[1].uv = tex_uv1; _VtxWritePtr[1].col = col; // Right-side outer edge
                     _VtxWritePtr += 2;
                 }
             }
@@ -947,9 +947,9 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
                 // If we're not using a texture, we need the center vertex as well
                 for (int i = 0; i < points_count; i++)
                 {
-                    _VtxWritePtr[0].pos = points[i];              _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;       // Center of line
-                    _VtxWritePtr[1].pos = temp_points[i * 2 + 0]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col_trans; // Left-side outer edge
-                    _VtxWritePtr[2].pos = temp_points[i * 2 + 1]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col_trans; // Right-side outer edge
+                    _VtxWritePtr[0].position = points[i];              _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;       // Center of line
+                    _VtxWritePtr[1].position = temp_points[i * 2 + 0]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col_trans; // Left-side outer edge
+                    _VtxWritePtr[2].position = temp_points[i * 2 + 1]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col_trans; // Right-side outer edge
                     _VtxWritePtr += 3;
                 }
             }
@@ -1017,10 +1017,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             // Add vertices
             for (int i = 0; i < points_count; i++)
             {
-                _VtxWritePtr[0].pos = temp_points[i * 4 + 0]; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col_trans;
-                _VtxWritePtr[1].pos = temp_points[i * 4 + 1]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
-                _VtxWritePtr[2].pos = temp_points[i * 4 + 2]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
-                _VtxWritePtr[3].pos = temp_points[i * 4 + 3]; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col_trans;
+                _VtxWritePtr[0].position = temp_points[i * 4 + 0]; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col_trans;
+                _VtxWritePtr[1].position = temp_points[i * 4 + 1]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
+                _VtxWritePtr[2].position = temp_points[i * 4 + 2]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
+                _VtxWritePtr[3].position = temp_points[i * 4 + 3]; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col_trans;
                 _VtxWritePtr += 4;
             }
         }
@@ -1045,10 +1045,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             dx *= (thickness * 0.5f);
             dy *= (thickness * 0.5f);
 
-            _VtxWritePtr[0].pos.x = p1.x + dy; _VtxWritePtr[0].pos.y = p1.y - dx; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;
-            _VtxWritePtr[1].pos.x = p2.x + dy; _VtxWritePtr[1].pos.y = p2.y - dx; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
-            _VtxWritePtr[2].pos.x = p2.x - dy; _VtxWritePtr[2].pos.y = p2.y + dx; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
-            _VtxWritePtr[3].pos.x = p1.x - dy; _VtxWritePtr[3].pos.y = p1.y + dx; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col;
+            _VtxWritePtr[0].position.x = p1.x + dy; _VtxWritePtr[0].position.y = p1.y - dx; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;
+            _VtxWritePtr[1].position.x = p2.x + dy; _VtxWritePtr[1].position.y = p2.y - dx; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
+            _VtxWritePtr[2].position.x = p2.x - dy; _VtxWritePtr[2].position.y = p2.y + dx; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
+            _VtxWritePtr[3].position.x = p1.x - dy; _VtxWritePtr[3].position.y = p1.y + dx; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col;
             _VtxWritePtr += 4;
 
             _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx); _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + 1); _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + 2);
@@ -1112,8 +1112,8 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
             dm_y *= AA_SIZE * 0.5f;
 
             // Add vertices
-            _VtxWritePtr[0].pos.x = (points[i1].x - dm_x); _VtxWritePtr[0].pos.y = (points[i1].y - dm_y); _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;        // Inner
-            _VtxWritePtr[1].pos.x = (points[i1].x + dm_x); _VtxWritePtr[1].pos.y = (points[i1].y + dm_y); _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col_trans;  // Outer
+            _VtxWritePtr[0].position.x = (points[i1].x - dm_x); _VtxWritePtr[0].position.y = (points[i1].y - dm_y); _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;        // Inner
+            _VtxWritePtr[1].position.x = (points[i1].x + dm_x); _VtxWritePtr[1].position.y = (points[i1].y + dm_y); _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col_trans;  // Outer
             _VtxWritePtr += 2;
 
             // Add indexes for fringes
@@ -1131,7 +1131,7 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         PrimReserve(idx_count, vtx_count);
         for (int i = 0; i < vtx_count; i++)
         {
-            _VtxWritePtr[0].pos = points[i]; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
+            _VtxWritePtr[0].position = points[i]; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
             _VtxWritePtr++;
         }
         for (int i = 2; i < points_count; i++)
@@ -1704,7 +1704,7 @@ void ImDrawList::AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const Im
     PathStroke(col, 0, thickness);
 }
 
-void ImDrawList::AddText(ImFont* font, float font_size, const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end, float wrap_width, const ImVec4* cpu_fine_clip_rect)
+void ImDrawList::AddText(ImFont* font, float font_size, const ImVec2& position, ImU32 col, const char* text_begin, const char* text_end, float wrap_width, const ImVec4* cpu_fine_clip_rect)
 {
     if ((col & IM_COL32_A_MASK) == 0)
         return;
@@ -1728,12 +1728,12 @@ void ImDrawList::AddText(ImFont* font, float font_size, const ImVec2& pos, ImU32
         clip_rect.z = ImMin(clip_rect.z, cpu_fine_clip_rect->z);
         clip_rect.w = ImMin(clip_rect.w, cpu_fine_clip_rect->w);
     }
-    font->RenderText(this, font_size, pos, col, clip_rect, text_begin, text_end, wrap_width, (cpu_fine_clip_rect != NULL) ? ImDrawTextFlags_CpuFineClip : ImDrawTextFlags_None);
+    font->RenderText(this, font_size, position, col, clip_rect, text_begin, text_end, wrap_width, (cpu_fine_clip_rect != NULL) ? ImDrawTextFlags_CpuFineClip : ImDrawTextFlags_None);
 }
 
-void ImDrawList::AddText(const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end)
+void ImDrawList::AddText(const ImVec2& position, ImU32 col, const char* text_begin, const char* text_end)
 {
-    AddText(_Data->Font, _Data->FontSize, pos, col, text_begin, text_end);
+    AddText(_Data->Font, _Data->FontSize, position, col, text_begin, text_end);
 }
 
 void ImDrawList::AddImage(ImTextureRef tex_ref, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min, const ImVec2& uv_max, ImU32 col)
@@ -2071,8 +2071,8 @@ void ImDrawList::AddConcavePolyFilled(const ImVec2* points, const int points_cou
             dm_y *= AA_SIZE * 0.5f;
 
             // Add vertices
-            _VtxWritePtr[0].pos.x = (points[i1].x - dm_x); _VtxWritePtr[0].pos.y = (points[i1].y - dm_y); _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;        // Inner
-            _VtxWritePtr[1].pos.x = (points[i1].x + dm_x); _VtxWritePtr[1].pos.y = (points[i1].y + dm_y); _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col_trans;  // Outer
+            _VtxWritePtr[0].position.x = (points[i1].x - dm_x); _VtxWritePtr[0].position.y = (points[i1].y - dm_y); _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;        // Inner
+            _VtxWritePtr[1].position.x = (points[i1].x + dm_x); _VtxWritePtr[1].position.y = (points[i1].y + dm_y); _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col_trans;  // Outer
             _VtxWritePtr += 2;
 
             // Add indexes for fringes
@@ -2090,7 +2090,7 @@ void ImDrawList::AddConcavePolyFilled(const ImVec2* points, const int points_cou
         PrimReserve(idx_count, vtx_count);
         for (int i = 0; i < vtx_count; i++)
         {
-            _VtxWritePtr[0].pos = points[i]; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
+            _VtxWritePtr[0].position = points[i]; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
             _VtxWritePtr++;
         }
         _Data->TempBuffer.reserve_discard((ImTriangulator::EstimateScratchBufferSize(points_count) + sizeof(ImVec2)) / sizeof(ImVec2));
@@ -2365,7 +2365,7 @@ void ImGui::ShadeVertsLinearColorGradientKeepAlpha(ImDrawList* draw_list, int ve
     const int col_delta_b = ((int)(col1 >> IM_COL32_B_SHIFT) & 0xFF) - col0_b;
     for (ImDrawVert* vert = vert_start; vert < vert_end; vert++)
     {
-        float d = ImDot(vert->pos - gradient_p0, gradient_extent);
+        float d = ImDot(vert->position - gradient_p0, gradient_extent);
         float t = ImClamp(d * gradient_inv_length2, 0.0f, 1.0f);
         int r = (int)(col0_r + col_delta_r * t);
         int g = (int)(col0_g + col_delta_g * t);
@@ -2390,12 +2390,12 @@ void ImGui::ShadeVertsLinearUV(ImDrawList* draw_list, int vert_start_idx, int ve
         const ImVec2 min = ImMin(uv_a, uv_b);
         const ImVec2 max = ImMax(uv_a, uv_b);
         for (ImDrawVert* vertex = vert_start; vertex < vert_end; ++vertex)
-            vertex->uv = ImClamp(uv_a + ImMul(ImVec2(vertex->pos.x, vertex->pos.y) - a, scale), min, max);
+            vertex->uv = ImClamp(uv_a + ImMul(ImVec2(vertex->position.x, vertex->position.y) - a, scale), min, max);
     }
     else
     {
         for (ImDrawVert* vertex = vert_start; vertex < vert_end; ++vertex)
-            vertex->uv = uv_a + ImMul(ImVec2(vertex->pos.x, vertex->pos.y) - a, scale);
+            vertex->uv = uv_a + ImMul(ImVec2(vertex->position.x, vertex->position.y) - a, scale);
     }
 }
 
@@ -2404,7 +2404,7 @@ void ImGui::ShadeVertsTransformPos(ImDrawList* draw_list, int vert_start_idx, in
     ImDrawVert* vert_start = draw_list->VtxBuffer.Data + vert_start_idx;
     ImDrawVert* vert_end = draw_list->VtxBuffer.Data + vert_end_idx;
     for (ImDrawVert* vertex = vert_start; vertex < vert_end; ++vertex)
-        vertex->pos = ImRotate(vertex->pos- pivot_in, cos_a, sin_a) + pivot_out;
+        vertex->position = ImRotate(vertex->position- pivot_in, cos_a, sin_a) + pivot_out;
 }
 
 //-----------------------------------------------------------------------------
@@ -3361,15 +3361,15 @@ bool ImFontAtlasGetMouseCursorTexData(ImFontAtlas* atlas, ImGuiMouseCursor curso
         return false;
 
     ImTextureRect* r = ImFontAtlasPackGetRect(atlas, atlas->Builder->PackIdMouseCursors);
-    ImVec2 pos = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][0] + ImVec2((float)r->x, (float)r->y);
+    ImVec2 position = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][0] + ImVec2((float)r->x, (float)r->y);
     ImVec2 size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][1];
     *out_size = size;
     *out_offset = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][2];
-    out_uv_border[0] = (pos) * atlas->TexUvScale;
-    out_uv_border[1] = (pos + size) * atlas->TexUvScale;
-    pos.x += FONT_ATLAS_DEFAULT_TEX_DATA_W + 1;
-    out_uv_fill[0] = (pos) * atlas->TexUvScale;
-    out_uv_fill[1] = (pos + size) * atlas->TexUvScale;
+    out_uv_border[0] = (position) * atlas->TexUvScale;
+    out_uv_border[1] = (position + size) * atlas->TexUvScale;
+    position.x += FONT_ATLAS_DEFAULT_TEX_DATA_W + 1;
+    out_uv_fill[0] = (position) * atlas->TexUvScale;
+    out_uv_fill[1] = (position + size) * atlas->TexUvScale;
     return true;
 }
 
@@ -5573,7 +5573,7 @@ ImVec2 ImFont::CalcTextSizeA(float size, float max_width, float wrap_width, cons
 }
 
 // Note: as with every ImDrawList drawing function, this expects that the font atlas texture is bound.
-void ImFont::RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, ImWchar c, const ImVec4* cpu_fine_clip)
+void ImFont::RenderChar(ImDrawList* draw_list, float size, const ImVec2& position, ImU32 col, ImWchar c, const ImVec4* cpu_fine_clip)
 {
     ImFontBaked* baked = GetFontBaked(size);
     const ImFontGlyph* glyph = baked->FindGlyph(c);
@@ -5582,8 +5582,8 @@ void ImFont::RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, Im
     if (glyph->Colored)
         col |= ~IM_COL32_A_MASK;
     float scale = (size >= 0.0f) ? (size / baked->Size) : 1.0f;
-    float x = IM_TRUNC(pos.x);
-    float y = IM_TRUNC(pos.y);
+    float x = IM_TRUNC(position.x);
+    float y = IM_TRUNC(position.y);
 
     float x1 = x + glyph->X0 * scale;
     float x2 = x + glyph->X1 * scale;
@@ -5613,12 +5613,12 @@ void ImFont::RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, Im
 
 // Note: as with every ImDrawList drawing function, this expects that the font atlas texture is bound.
 // DO NOT CALL DIRECTLY THIS WILL CHANGE WILDLY IN 2025-2025. Use ImDrawList::AddText().
-void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width, ImDrawTextFlags flags)
+void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& position, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width, ImDrawTextFlags flags)
 {
     // Align to be pixel perfect
 begin:
-    float x = IM_TRUNC(pos.x);
-    float y = IM_TRUNC(pos.y);
+    float x = IM_TRUNC(position.x);
+    float y = IM_TRUNC(position.y);
     if (y > clip_rect.w)
         return;
 
@@ -5780,10 +5780,10 @@ begin:
 
                 // We are NOT calling PrimRectUV() here because non-inlined causes too much overhead in a debug builds. Inlined here:
                 {
-                    vtx_write[0].pos.x = x1; vtx_write[0].pos.y = y1; vtx_write[0].col = glyph_col; vtx_write[0].uv.x = u1; vtx_write[0].uv.y = v1;
-                    vtx_write[1].pos.x = x2; vtx_write[1].pos.y = y1; vtx_write[1].col = glyph_col; vtx_write[1].uv.x = u2; vtx_write[1].uv.y = v1;
-                    vtx_write[2].pos.x = x2; vtx_write[2].pos.y = y2; vtx_write[2].col = glyph_col; vtx_write[2].uv.x = u2; vtx_write[2].uv.y = v2;
-                    vtx_write[3].pos.x = x1; vtx_write[3].pos.y = y2; vtx_write[3].col = glyph_col; vtx_write[3].uv.x = u1; vtx_write[3].uv.y = v2;
+                    vtx_write[0].position.x = x1; vtx_write[0].position.y = y1; vtx_write[0].col = glyph_col; vtx_write[0].uv.x = u1; vtx_write[0].uv.y = v1;
+                    vtx_write[1].position.x = x2; vtx_write[1].position.y = y1; vtx_write[1].col = glyph_col; vtx_write[1].uv.x = u2; vtx_write[1].uv.y = v1;
+                    vtx_write[2].position.x = x2; vtx_write[2].position.y = y2; vtx_write[2].col = glyph_col; vtx_write[2].uv.x = u2; vtx_write[2].uv.y = v2;
+                    vtx_write[3].position.x = x1; vtx_write[3].position.y = y2; vtx_write[3].col = glyph_col; vtx_write[3].uv.x = u1; vtx_write[3].uv.y = v2;
                     idx_write[0] = (ImDrawIdx)(vtx_index); idx_write[1] = (ImDrawIdx)(vtx_index + 1); idx_write[2] = (ImDrawIdx)(vtx_index + 2);
                     idx_write[3] = (ImDrawIdx)(vtx_index); idx_write[4] = (ImDrawIdx)(vtx_index + 2); idx_write[5] = (ImDrawIdx)(vtx_index + 3);
                     vtx_write += 4;
@@ -5835,11 +5835,11 @@ begin:
 //-----------------------------------------------------------------------------
 
 // Render an arrow aimed to be aligned with text (p_min is a position in the same space text would be positioned). To e.g. denote expanded/collapsed state
-void ImGui::RenderArrow(ImDrawList* draw_list, ImVec2 pos, ImU32 col, ImGuiDir dir, float scale)
+void ImGui::RenderArrow(ImDrawList* draw_list, ImVec2 position, ImU32 col, ImGuiDir dir, float scale)
 {
     const float h = draw_list->_Data->FontSize * 1.00f;
     float r = h * 0.40f * scale;
-    ImVec2 center = pos + ImVec2(h * 0.50f, h * 0.50f * scale);
+    ImVec2 center = position + ImVec2(h * 0.50f, h * 0.50f * scale);
 
     ImVec2 a, b, c;
     switch (dir)
@@ -5866,22 +5866,22 @@ void ImGui::RenderArrow(ImDrawList* draw_list, ImVec2 pos, ImU32 col, ImGuiDir d
     draw_list->AddTriangleFilled(center + a, center + b, center + c, col);
 }
 
-void ImGui::RenderBullet(ImDrawList* draw_list, ImVec2 pos, ImU32 col)
+void ImGui::RenderBullet(ImDrawList* draw_list, ImVec2 position, ImU32 col)
 {
     // FIXME-OPT: This should be baked in font now that it's easier.
     float font_size = draw_list->_Data->FontSize;
-    draw_list->AddCircleFilled(pos, font_size * 0.20f, col, (font_size < 22) ? 8 : (font_size < 40) ? 12 : 0); // Hardcode optimal/nice tessellation threshold
+    draw_list->AddCircleFilled(position, font_size * 0.20f, col, (font_size < 22) ? 8 : (font_size < 40) ? 12 : 0); // Hardcode optimal/nice tessellation threshold
 }
 
-void ImGui::RenderCheckMark(ImDrawList* draw_list, ImVec2 pos, ImU32 col, float sz)
+void ImGui::RenderCheckMark(ImDrawList* draw_list, ImVec2 position, ImU32 col, float sz)
 {
     float thickness = ImMax(sz / 5.0f, 1.0f);
     sz -= thickness * 0.5f;
-    pos += ImVec2(thickness * 0.25f, thickness * 0.25f);
+    position += ImVec2(thickness * 0.25f, thickness * 0.25f);
 
     float third = sz / 3.0f;
-    float bx = pos.x + third;
-    float by = pos.y + sz - third * 0.5f;
+    float bx = position.x + third;
+    float by = position.y + sz - third * 0.5f;
     draw_list->PathLineTo(ImVec2(bx - third, by - third));
     draw_list->PathLineTo(ImVec2(bx, by));
     draw_list->PathLineTo(ImVec2(bx + third * 2.0f, by - third * 2.0f));
@@ -5889,14 +5889,14 @@ void ImGui::RenderCheckMark(ImDrawList* draw_list, ImVec2 pos, ImU32 col, float 
 }
 
 // Render an arrow. 'pos' is position of the arrow tip. half_sz.x is length from base to tip. half_sz.y is length on each side.
-void ImGui::RenderArrowPointingAt(ImDrawList* draw_list, ImVec2 pos, ImVec2 half_sz, ImGuiDir direction, ImU32 col)
+void ImGui::RenderArrowPointingAt(ImDrawList* draw_list, ImVec2 position, ImVec2 half_sz, ImGuiDir direction, ImU32 col)
 {
     switch (direction)
     {
-    case ImGuiDir_Left:  draw_list->AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), pos, col); return;
-    case ImGuiDir_Right: draw_list->AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), pos, col); return;
-    case ImGuiDir_Up:    draw_list->AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), pos, col); return;
-    case ImGuiDir_Down:  draw_list->AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), pos, col); return;
+    case ImGuiDir_Left:  draw_list->AddTriangleFilled(ImVec2(position.x + half_sz.x, position.y - half_sz.y), ImVec2(position.x + half_sz.x, position.y + half_sz.y), position, col); return;
+    case ImGuiDir_Right: draw_list->AddTriangleFilled(ImVec2(position.x - half_sz.x, position.y + half_sz.y), ImVec2(position.x - half_sz.x, position.y - half_sz.y), position, col); return;
+    case ImGuiDir_Up:    draw_list->AddTriangleFilled(ImVec2(position.x + half_sz.x, position.y + half_sz.y), ImVec2(position.x - half_sz.x, position.y + half_sz.y), position, col); return;
+    case ImGuiDir_Down:  draw_list->AddTriangleFilled(ImVec2(position.x - half_sz.x, position.y - half_sz.y), ImVec2(position.x + half_sz.x, position.y - half_sz.y), position, col); return;
     case ImGuiDir_None: case ImGuiDir_COUNT: break; // Fix warnings
     }
 }

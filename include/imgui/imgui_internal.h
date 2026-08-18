@@ -713,7 +713,7 @@ struct ImSpanAllocator
     int     Sizes[CHUNKS];
 
     ImSpanAllocator()                               { memset(this, 0, sizeof(*this)); }
-    inline void  Reserve(int n, size_t sz, int a=4) { IM_ASSERT(n == CurrIdx && n < CHUNKS); CurrOff = IM_MEMALIGN(CurrOff, a); Offsets[n] = CurrOff; Sizes[n] = (int)sz; CurrIdx++; CurrOff += (int)sz; }
+    inline void  ReserveNodes(int n, size_t sz, int a=4) { IM_ASSERT(n == CurrIdx && n < CHUNKS); CurrOff = IM_MEMALIGN(CurrOff, a); Offsets[n] = CurrOff; Sizes[n] = (int)sz; CurrIdx++; CurrOff += (int)sz; }
     inline int   GetArenaSizeInBytes()              { return CurrOff; }
     inline void  SetArenaBasePtr(void* base_ptr)    { BasePtr = (char*)base_ptr; }
     inline void* GetSpanPtrBegin(int n)             { IM_ASSERT(n >= 0 && n < CHUNKS && CurrIdx == CHUNKS); return (void*)(BasePtr + Offsets[n]); }
@@ -778,7 +778,7 @@ struct ImPool
     T*          Add()                               { int idx = FreeIdx; if (idx == Buf.Size) { Buf.resize(Buf.Size + 1); FreeIdx++; } else { FreeIdx = *(int*)&Buf[idx]; } IM_PLACEMENT_NEW(&Buf[idx]) T(); AliveCount++; return &Buf[idx]; }
     void        Remove(ImGuiID key, const T* p)     { Remove(key, GetIndex(p)); }
     void        Remove(ImGuiID key, ImPoolIdx idx)  { Buf[idx].~T(); *(int*)&Buf[idx] = FreeIdx; FreeIdx = idx; Map.SetInt(key, -1); AliveCount--; }
-    void        Reserve(int capacity)               { Buf.reserve(capacity); Map.Data.reserve(capacity); }
+    void        ReserveNodes(int capacity)               { Buf.reserve(capacity); Map.Data.reserve(capacity); }
 
     // To iterate a ImPool: for (int n = 0; n < pool.GetMapSize(); n++) if (T* t = pool.TryGetMapData(n)) { ... }
     // Can be avoided if you know .Remove() has never been called on the pool, or AliveCount == GetMapSize()
@@ -1679,7 +1679,7 @@ struct ImGuiListClipperData
     ImVector<ImGuiListClipperRange> Ranges;
 
     ImGuiListClipperData()          { memset(this, 0, sizeof(*this)); }
-    void                            Reset(ImGuiListClipper* clipper) { ListClipper = clipper; StepNo = ItemsFrozen = 0; Ranges.resize(0); }
+    void                            ResetCells(ImGuiListClipper* clipper) { ListClipper = clipper; StepNo = ItemsFrozen = 0; Ranges.resize(0); }
 };
 
 //-----------------------------------------------------------------------------
@@ -2151,7 +2151,7 @@ struct ImGuiViewportP : public ImGuiViewport
     // Helpers to retrieve ImRect (we don't need to store BuildWorkRect as every access tend to change it, hence the code asymmetry)
     ImRect  GetMainRect() const         { return ImRect(Pos.x, Pos.y, Pos.x + Size.x, Pos.y + Size.y); }
     ImRect  GetWorkRect() const         { return ImRect(WorkPos.x, WorkPos.y, WorkPos.x + WorkSize.x, WorkPos.y + WorkSize.y); }
-    ImRect  GetBuildWorkRect() const    { ImVec2 pos = CalcWorkRectPos(BuildWorkInsetMin); ImVec2 size = CalcWorkRectSize(BuildWorkInsetMin, BuildWorkInsetMax); return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y); }
+    ImRect  GetBuildWorkRect() const    { ImVec2 position = CalcWorkRectPos(BuildWorkInsetMin); ImVec2 size = CalcWorkRectSize(BuildWorkInsetMin, BuildWorkInsetMax); return ImRect(position.x, position.y, position.x + size.x, position.y + size.y); }
 };
 
 //-----------------------------------------------------------------------------
@@ -3361,10 +3361,10 @@ namespace ImGui
     IMGUI_API bool          IsWindowWithinBeginStackOf(ImGuiWindow* window, ImGuiWindow* potential_parent);
     IMGUI_API bool          IsWindowAbove(ImGuiWindow* potential_above, ImGuiWindow* potential_below);
     IMGUI_API bool          IsWindowNavFocusable(ImGuiWindow* window);
-    IMGUI_API void          SetWindowPos(ImGuiWindow* window, const ImVec2& pos, ImGuiCond cond = 0);
+    IMGUI_API void          SetWindowPos(ImGuiWindow* window, const ImVec2& position, ImGuiCond cond = 0);
     IMGUI_API void          SetWindowSize(ImGuiWindow* window, const ImVec2& size, ImGuiCond cond = 0);
     IMGUI_API void          SetWindowCollapsed(ImGuiWindow* window, bool collapsed, ImGuiCond cond = 0);
-    IMGUI_API void          SetWindowHitTestHole(ImGuiWindow* window, const ImVec2& pos, const ImVec2& size);
+    IMGUI_API void          SetWindowHitTestHole(ImGuiWindow* window, const ImVec2& position, const ImVec2& size);
     IMGUI_API void          SetWindowHiddenAndSkipItemsForCurrentFrame(ImGuiWindow* window);
     inline void             SetWindowParentWindowForFocusRoute(ImGuiWindow* window, ImGuiWindow* parent_window) { window->ParentWindowForFocusRoute = parent_window; } // You may also use SetNextWindowClass()'s FocusRouteParentWindowId field.
     inline ImRect           WindowRectAbsToRel(ImGuiWindow* window, const ImRect& r) { ImVec2 off = window->DC.CursorStartPos; return ImRect(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y); }
@@ -3408,7 +3408,7 @@ namespace ImGui
     // NewFrame
     IMGUI_API void          UpdateInputEvents(bool trickle_fast_inputs);
     IMGUI_API void          UpdateHoveredWindowAndCaptureFlags(const ImVec2& mouse_pos);
-    IMGUI_API void          FindHoveredWindowEx(const ImVec2& pos, bool find_first_and_in_any_viewport, ImGuiWindow** out_hovered_window, ImGuiWindow** out_hovered_window_under_moving_window);
+    IMGUI_API void          FindHoveredWindowEx(const ImVec2& position, bool find_first_and_in_any_viewport, ImGuiWindow** out_hovered_window, ImGuiWindow** out_hovered_window_under_moving_window);
     IMGUI_API void          StartMouseMovingWindow(ImGuiWindow* window);
     IMGUI_API void          StartMouseMovingWindowOrNode(ImGuiWindow* window, ImGuiDockNode* node, bool undock);
     IMGUI_API void          StopMouseMovingWindow();
@@ -3486,10 +3486,10 @@ namespace ImGui
     IMGUI_API bool          IsClippedEx(const ImRect& bb, ImGuiID id);
     IMGUI_API void          SetLastItemData(ImGuiID item_id, ImGuiItemFlags item_flags, ImGuiItemStatusFlags status_flags, const ImRect& item_rect);
     IMGUI_API ImVec2        CalcItemSize(ImVec2 size, float default_w, float default_h);
-    IMGUI_API float         CalcWrapWidthForPos(const ImVec2& pos, float wrap_pos_x);
+    IMGUI_API float         CalcWrapWidthForPos(const ImVec2& position, float wrap_pos_x);
     IMGUI_API void          PushMultiItemsWidths(int components, float width_full);
     IMGUI_API void          ShrinkWidths(ImGuiShrinkWidthItem* items, int count, float width_excess, float width_min);
-    IMGUI_API void          CalcClipRectVisibleItemsY(const ImRect& clip_rect, const ImVec2& pos, float items_height, int* out_visible_start, int* out_visible_end);
+    IMGUI_API void          CalcClipRectVisibleItemsY(const ImRect& clip_rect, const ImVec2& position, float items_height, int* out_visible_start, int* out_visible_end);
 
     // Parameter stacks (shared)
     IMGUI_API const ImGuiStyleVarInfo* GetStyleVarInfo(ImGuiStyleVar idx);
@@ -3588,7 +3588,7 @@ namespace ImGui
     IMGUI_API float         GetNavTweakPressedAmount(ImGuiAxis axis);
     IMGUI_API int           CalcTypematicRepeatAmount(float t0, float t1, float repeat_delay, float repeat_rate);
     IMGUI_API void          GetTypematicRepeatRate(ImGuiInputFlags flags, float* repeat_delay, float* repeat_rate);
-    IMGUI_API void          TeleportMousePos(const ImVec2& pos);
+    IMGUI_API void          TeleportMousePos(const ImVec2& position);
     IMGUI_API void          SetActiveIdUsingAllKeyboardKeys();
     inline bool             IsActiveIdUsingNavDir(ImGuiDir dir)                         { ImGuiContext& g = *GImGui; return (g.ActiveIdUsingNavDirMask & (1 << dir)) != 0; }
 
@@ -3691,7 +3691,7 @@ namespace ImGui
     IMGUI_API void          DockBuilderRemoveNode(ImGuiID node_id);                 // Remove node and all its child, undock all windows
     IMGUI_API void          DockBuilderRemoveNodeDockedWindows(ImGuiID node_id, bool clear_settings_refs = true);
     IMGUI_API void          DockBuilderRemoveNodeChildNodes(ImGuiID node_id);       // Remove all split/hierarchy. All remaining docked windows will be re-docked to the remaining root node (node_id).
-    IMGUI_API void          DockBuilderSetNodePos(ImGuiID node_id, ImVec2 pos);
+    IMGUI_API void          DockBuilderSetNodePos(ImGuiID node_id, ImVec2 position);
     IMGUI_API void          DockBuilderSetNodeSize(ImGuiID node_id, ImVec2 size);
     IMGUI_API ImGuiID       DockBuilderSplitNode(ImGuiID node_id, ImGuiDir split_dir, float size_ratio_for_node_at_dir, ImGuiID* out_id_at_dir, ImGuiID* out_id_at_opposite_dir); // Create 2 child nodes in this parent node.
     IMGUI_API void          DockBuilderCopyDockSpace(ImGuiID src_dockspace_id, ImGuiID dst_dockspace_id, ImVector<const char*>* in_window_remap_pairs);
@@ -3839,8 +3839,8 @@ namespace ImGui
     // Render helpers
     // AVOID USING OUTSIDE OF IMGUI.CPP! NOT FOR PUBLIC CONSUMPTION. THOSE FUNCTIONS ARE A MESS. THEIR SIGNATURE AND BEHAVIOR WILL CHANGE, THEY NEED TO BE REFACTORED INTO SOMETHING DECENT.
     // NB: All position are in absolute pixels coordinates (we are never using window coordinates internally)
-    IMGUI_API void          RenderText(ImVec2 pos, const char* text, const char* text_end = NULL, bool hide_text_after_hash = true);
-    IMGUI_API void          RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end, float wrap_width);
+    IMGUI_API void          RenderText(ImVec2 position, const char* text, const char* text_end = NULL, bool hide_text_after_hash = true);
+    IMGUI_API void          RenderTextWrapped(ImVec2 position, const char* text, const char* text_end, float wrap_width);
     IMGUI_API void          RenderTextClipped(const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_end, const ImVec2* text_size_if_known, const ImVec2& align = ImVec2(0, 0), const ImRect* clip_rect = NULL);
     IMGUI_API void          RenderTextClippedEx(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_end, const ImVec2* text_size_if_known, const ImVec2& align = ImVec2(0, 0), const ImRect* clip_rect = NULL);
     IMGUI_API void          RenderTextEllipsis(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, float ellipsis_max_x, const char* text, const char* text_end, const ImVec2* text_size_if_known);
@@ -3852,13 +3852,13 @@ namespace ImGui
     inline    void          RenderNavHighlight(const ImRect& bb, ImGuiID id, ImGuiNavRenderCursorFlags flags = ImGuiNavRenderCursorFlags_None) { RenderNavCursor(bb, id, flags); } // Renamed in 1.91.4
 #endif
     IMGUI_API const char*   FindRenderedTextEnd(const char* text, const char* text_end = NULL); // Find the optional ## from which we stop displaying text.
-    IMGUI_API void          RenderMouseCursor(ImVec2 pos, float scale, ImGuiMouseCursor mouse_cursor, ImU32 col_fill, ImU32 col_border, ImU32 col_shadow);
+    IMGUI_API void          RenderMouseCursor(ImVec2 position, float scale, ImGuiMouseCursor mouse_cursor, ImU32 col_fill, ImU32 col_border, ImU32 col_shadow);
 
     // Render helpers (those functions don't access any ImGui state!)
-    IMGUI_API void          RenderArrow(ImDrawList* draw_list, ImVec2 pos, ImU32 col, ImGuiDir dir, float scale = 1.0f);
-    IMGUI_API void          RenderBullet(ImDrawList* draw_list, ImVec2 pos, ImU32 col);
-    IMGUI_API void          RenderCheckMark(ImDrawList* draw_list, ImVec2 pos, ImU32 col, float sz);
-    IMGUI_API void          RenderArrowPointingAt(ImDrawList* draw_list, ImVec2 pos, ImVec2 half_sz, ImGuiDir direction, ImU32 col);
+    IMGUI_API void          RenderArrow(ImDrawList* draw_list, ImVec2 position, ImU32 col, ImGuiDir dir, float scale = 1.0f);
+    IMGUI_API void          RenderBullet(ImDrawList* draw_list, ImVec2 position, ImU32 col);
+    IMGUI_API void          RenderCheckMark(ImDrawList* draw_list, ImVec2 position, ImU32 col, float sz);
+    IMGUI_API void          RenderArrowPointingAt(ImDrawList* draw_list, ImVec2 position, ImVec2 half_sz, ImGuiDir direction, ImU32 col);
     IMGUI_API void          RenderArrowDockMenu(ImDrawList* draw_list, ImVec2 p_min, float sz, ImU32 col);
     IMGUI_API void          RenderRectFilledRangeH(ImDrawList* draw_list, const ImRect& rect, ImU32 col, float x_start_norm, float x_end_norm, float rounding);
     IMGUI_API void          RenderRectFilledWithHole(ImDrawList* draw_list, const ImRect& outer, const ImRect& inner, ImU32 col, float rounding);
@@ -3879,8 +3879,8 @@ namespace ImGui
     IMGUI_API bool          CheckboxFlags(const char* label, ImU64* flags, ImU64 flags_value);
 
     // Widgets: Window Decorations
-    IMGUI_API bool          CloseButton(ImGuiID id, const ImVec2& pos);
-    IMGUI_API bool          CollapseButton(ImGuiID id, const ImVec2& pos, ImGuiDockNode* dock_node);
+    IMGUI_API bool          CloseButton(ImGuiID id, const ImVec2& position);
+    IMGUI_API bool          CollapseButton(ImGuiID id, const ImVec2& position, ImGuiDockNode* dock_node);
     IMGUI_API void          Scrollbar(ImGuiAxis axis);
     IMGUI_API bool          ScrollbarEx(const ImRect& bb, ImGuiID id, ImGuiAxis axis, ImS64* p_scroll_v, ImS64 avail_v, ImS64 contents_v, ImDrawFlags draw_rounding_flags = 0);
     IMGUI_API ImRect        GetWindowScrollbarRect(ImGuiWindow* window, ImGuiAxis axis);

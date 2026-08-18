@@ -1395,11 +1395,11 @@ static ImVec2 ImGui_ImplGlfw_GetWindowPos(ImGuiViewport* viewport)
     return ImVec2((float)x, (float)y);
 }
 
-static void ImGui_ImplGlfw_SetWindowPos(ImGuiViewport* viewport, ImVec2 pos)
+static void ImGui_ImplGlfw_SetWindowPos(ImGuiViewport* viewport, ImVec2 position)
 {
     ImGui_ImplGlfw_ViewportData* vd = (ImGui_ImplGlfw_ViewportData*)viewport->PlatformUserData;
     vd->IgnoreWindowPosEventFrame = ImGui::GetFrameCount();
-    glfwSetWindowPos(vd->Window, (int)pos.x, (int)pos.y);
+    glfwSetWindowPos(vd->Window, (int)position.x, (int)position.y);
 }
 
 static ImVec2 ImGui_ImplGlfw_GetWindowSize(ImGuiViewport* viewport)

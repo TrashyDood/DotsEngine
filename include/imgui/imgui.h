@@ -474,7 +474,7 @@ namespace ImGui
 
     // Window manipulation
     // - Prefer using SetNextXXX functions (before Begin) rather that SetXXX functions (after Begin).
-    IMGUI_API void          SetNextWindowPos(const ImVec2& pos, ImGuiCond cond = 0, const ImVec2& pivot = ImVec2(0, 0)); // set next window position. call before Begin(). use pivot=(0.5f,0.5f) to center on given point, etc.
+    IMGUI_API void          SetNextWindowPos(const ImVec2& position, ImGuiCond cond = 0, const ImVec2& pivot = ImVec2(0, 0)); // set next window position. call before Begin(). use pivot=(0.5f,0.5f) to center on given point, etc.
     IMGUI_API void          SetNextWindowSize(const ImVec2& size, ImGuiCond cond = 0);                  // set next window size. set axis to 0.0f to force an auto-fit on this axis. call before Begin()
     IMGUI_API void          SetNextWindowSizeConstraints(const ImVec2& size_min, const ImVec2& size_max, ImGuiSizeCallback custom_callback = NULL, void* custom_callback_data = NULL); // set next window size limits. use 0.0f or FLT_MAX if you don't want limits. Use -1 for both min and max of same axis to preserve current size (which itself is a constraint). Use callback to apply non-trivial programmatic constraints.
     IMGUI_API void          SetNextWindowContentSize(const ImVec2& size);                               // set next window content size (~ scrollable client area, which enforce the range of scrollbars). Not including window decorations (title bar, menu bar, etc.) nor WindowPadding. set an axis to 0.0f to leave it automatic. call before Begin()
@@ -483,11 +483,11 @@ namespace ImGui
     IMGUI_API void          SetNextWindowScroll(const ImVec2& scroll);                                  // set next window scrolling value (use < 0.0f to not affect a given axis).
     IMGUI_API void          SetNextWindowBgAlpha(float alpha);                                          // set next window background color alpha. helper to easily override the Alpha component of ImGuiCol_WindowBg/ChildBg/PopupBg. you may also use ImGuiWindowFlags_NoBackground.
     IMGUI_API void          SetNextWindowViewport(ImGuiID viewport_id);                                 // set next window viewport
-    IMGUI_API void          SetWindowPos(const ImVec2& pos, ImGuiCond cond = 0);                        // (not recommended) set current window position - call within Begin()/End(). prefer using SetNextWindowPos(), as this may incur tearing and side-effects.
+    IMGUI_API void          SetWindowPos(const ImVec2& position, ImGuiCond cond = 0);                        // (not recommended) set current window position - call within Begin()/End(). prefer using SetNextWindowPos(), as this may incur tearing and side-effects.
     IMGUI_API void          SetWindowSize(const ImVec2& size, ImGuiCond cond = 0);                      // (not recommended) set current window size - call within Begin()/End(). set to ImVec2(0, 0) to force an auto-fit. prefer using SetNextWindowSize(), as this may incur tearing and minor side-effects.
     IMGUI_API void          SetWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                     // (not recommended) set current window collapsed state. prefer using SetNextWindowCollapsed().
     IMGUI_API void          SetWindowFocus();                                                           // (not recommended) set current window to be focused / top-most. prefer using SetNextWindowFocus().
-    IMGUI_API void          SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);      // set named window position.
+    IMGUI_API void          SetWindowPos(const char* name, const ImVec2& position, ImGuiCond cond = 0);      // set named window position.
     IMGUI_API void          SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);    // set named window size. set axis to 0.0f to force an auto-fit on this axis.
     IMGUI_API void          SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // set named window collapsed state
     IMGUI_API void          SetWindowFocus(const char* name);                                           // set named window to be focused / top-most. use NULL to remove focus.
@@ -567,7 +567,7 @@ namespace ImGui
     //    - Window-local coordinates:   GetContentRegionMax(), GetWindowContentRegionMin(), GetWindowContentRegionMax() --> all obsoleted. YOU DON'T NEED THEM.
     // - GetCursorScreenPos() = GetCursorPos() + GetWindowPos(). GetWindowPos() is almost only ever useful to convert from window-local to absolute coordinates. Try not to use it.
     IMGUI_API ImVec2        GetCursorScreenPos();                                           // cursor position, absolute coordinates. THIS IS YOUR BEST FRIEND (prefer using this rather than GetCursorPos(), also more useful to work with ImDrawList API).
-    IMGUI_API void          SetCursorScreenPos(const ImVec2& pos);                          // cursor position, absolute coordinates. THIS IS YOUR BEST FRIEND.
+    IMGUI_API void          SetCursorScreenPos(const ImVec2& position);                          // cursor position, absolute coordinates. THIS IS YOUR BEST FRIEND.
     IMGUI_API ImVec2        GetContentRegionAvail();                                        // available space from current position. THIS IS YOUR BEST FRIEND.
     IMGUI_API ImVec2        GetCursorPos();                                                 // [window-local] cursor position in window-local coordinates. This is not your best friend.
     IMGUI_API float         GetCursorPosX();                                                // [window-local] "
@@ -2741,8 +2741,8 @@ struct ImGuiInputTextCallbackData
     // Helper functions for text manipulation.
     // Use those function to benefit from the CallbackResize behaviors. Calling those function reset the selection.
     IMGUI_API ImGuiInputTextCallbackData();
-    IMGUI_API void      DeleteChars(int pos, int bytes_count);
-    IMGUI_API void      InsertChars(int pos, const char* text, const char* text_end = NULL);
+    IMGUI_API void      DeleteChars(int position, int bytes_count);
+    IMGUI_API void      InsertChars(int position, const char* text, const char* text_end = NULL);
     void                SelectAll()             { SelectionStart = 0; SelectionEnd = BufTextLen; }
     void                ClearSelection()        { SelectionStart = SelectionEnd = BufTextLen; }
     bool                HasSelection() const    { return SelectionStart != SelectionEnd; }
@@ -3281,7 +3281,7 @@ struct ImDrawCmd
 #ifndef IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT
 struct ImDrawVert
 {
-    ImVec2  pos;
+    ImVec2  position;
     ImVec2  uv;
     ImU32   col;
 };
@@ -3421,8 +3421,8 @@ struct ImDrawList
     IMGUI_API void  AddNgonFilled(const ImVec2& center, float radius, ImU32 col, int num_segments);
     IMGUI_API void  AddEllipse(const ImVec2& center, const ImVec2& radius, ImU32 col, float rot = 0.0f, int num_segments = 0, float thickness = 1.0f);
     IMGUI_API void  AddEllipseFilled(const ImVec2& center, const ImVec2& radius, ImU32 col, float rot = 0.0f, int num_segments = 0);
-    IMGUI_API void  AddText(const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL);
-    IMGUI_API void  AddText(ImFont* font, float font_size, const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
+    IMGUI_API void  AddText(const ImVec2& position, ImU32 col, const char* text_begin, const char* text_end = NULL);
+    IMGUI_API void  AddText(ImFont* font, float font_size, const ImVec2& position, ImU32 col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
     IMGUI_API void  AddBezierCubic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness, int num_segments = 0); // Cubic Bezier (4 control points)
     IMGUI_API void  AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col, float thickness, int num_segments = 0);               // Quadratic Bezier (3 control points)
 
@@ -3445,8 +3445,8 @@ struct ImDrawList
     // - Important: filled shapes must always use clockwise winding order! The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
     //   so e.g. 'PathArcTo(center, radius, PI * -0.5f, PI)' is ok, whereas 'PathArcTo(center, radius, PI, PI * -0.5f)' won't have correct anti-aliasing when followed by PathFillConvex().
     inline    void  PathClear()                                                 { _Path.Size = 0; }
-    inline    void  PathLineTo(const ImVec2& pos)                               { _Path.push_back(pos); }
-    inline    void  PathLineToMergeDuplicate(const ImVec2& pos)                 { if (_Path.Size == 0 || memcmp(&_Path.Data[_Path.Size - 1], &pos, 8) != 0) _Path.push_back(pos); }
+    inline    void  PathLineTo(const ImVec2& position)                               { _Path.push_back(position); }
+    inline    void  PathLineToMergeDuplicate(const ImVec2& position)                 { if (_Path.Size == 0 || memcmp(&_Path.Data[_Path.Size - 1], &position, 8) != 0) _Path.push_back(position); }
     inline    void  PathFillConvex(ImU32 col)                                   { AddConvexPolyFilled(_Path.Data, _Path.Size, col); _Path.Size = 0; }
     inline    void  PathFillConcave(ImU32 col)                                  { AddConcavePolyFilled(_Path.Data, _Path.Size, col); _Path.Size = 0; }
     inline    void  PathStroke(ImU32 col, ImDrawFlags flags = 0, float thickness = 1.0f) { AddPolyline(_Path.Data, _Path.Size, col, flags, thickness); _Path.Size = 0; }
@@ -3490,9 +3490,9 @@ struct ImDrawList
     IMGUI_API void  PrimRect(const ImVec2& a, const ImVec2& b, ImU32 col);      // Axis aligned rectangle (composed of two triangles)
     IMGUI_API void  PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImU32 col);
     IMGUI_API void  PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col);
-    inline    void  PrimWriteVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col)    { _VtxWritePtr->pos = pos; _VtxWritePtr->uv = uv; _VtxWritePtr->col = col; _VtxWritePtr++; _VtxCurrentIdx++; }
+    inline    void  PrimWriteVtx(const ImVec2& position, const ImVec2& uv, ImU32 col)    { _VtxWritePtr->position = position; _VtxWritePtr->uv = uv; _VtxWritePtr->col = col; _VtxWritePtr++; _VtxCurrentIdx++; }
     inline    void  PrimWriteIdx(ImDrawIdx idx)                                     { *_IdxWritePtr = idx; _IdxWritePtr++; }
-    inline    void  PrimVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col)         { PrimWriteIdx((ImDrawIdx)_VtxCurrentIdx); PrimWriteVtx(pos, uv, col); } // Write vertex with unique index
+    inline    void  PrimVtx(const ImVec2& position, const ImVec2& uv, ImU32 col)         { PrimWriteIdx((ImDrawIdx)_VtxCurrentIdx); PrimWriteVtx(position, uv, col); } // Write vertex with unique index
 
     // Obsolete names
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
@@ -3979,8 +3979,8 @@ struct ImFont
     IMGUI_API ImFontBaked*      GetFontBaked(float font_size, float density = -1.0f);  // Get or create baked data for given size
     IMGUI_API ImVec2            CalcTextSizeA(float size, float max_width, float wrap_width, const char* text_begin, const char* text_end = NULL, const char** out_remaining = NULL);
     IMGUI_API const char*       CalcWordWrapPosition(float size, const char* text, const char* text_end, float wrap_width);
-    IMGUI_API void              RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, ImWchar c, const ImVec4* cpu_fine_clip = NULL);
-    IMGUI_API void              RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width = 0.0f, ImDrawTextFlags flags = 0);
+    IMGUI_API void              RenderChar(ImDrawList* draw_list, float size, const ImVec2& position, ImU32 col, ImWchar c, const ImVec4* cpu_fine_clip = NULL);
+    IMGUI_API void              RenderText(ImDrawList* draw_list, float size, const ImVec2& position, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width = 0.0f, ImDrawTextFlags flags = 0);
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
     inline const char*          CalcWordWrapPositionA(float scale, const char* text, const char* text_end, float wrap_width) { return CalcWordWrapPosition(LegacySize * scale, text, text_end, wrap_width); }
 #endif
@@ -4189,7 +4189,7 @@ struct ImGuiPlatformIO
     void    (*Platform_CreateWindow)(ImGuiViewport* vp);                    // . . U . .  // Create a new platform window for the given viewport
     void    (*Platform_DestroyWindow)(ImGuiViewport* vp);                   // N . U . D  //
     void    (*Platform_ShowWindow)(ImGuiViewport* vp);                      // . . U . .  // Newly created windows are initially hidden so SetWindowPos/Size/Title can be called on them before showing the window
-    void    (*Platform_SetWindowPos)(ImGuiViewport* vp, ImVec2 pos);        // . . U . .  // Set platform window position (given the upper-left corner of client area)
+    void    (*Platform_SetWindowPos)(ImGuiViewport* vp, ImVec2 position);        // . . U . .  // Set platform window position (given the upper-left corner of client area)
     ImVec2  (*Platform_GetWindowPos)(ImGuiViewport* vp);                    // N . . . .  //
     void    (*Platform_SetWindowSize)(ImGuiViewport* vp, ImVec2 size);      // . . U . .  // Set platform window client area size (ignoring OS decorations such as OS title bar etc.)
     ImVec2  (*Platform_GetWindowSize)(ImGuiViewport* vp);                   // N . . . .  // Get platform window client area size
