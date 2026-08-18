@@ -52,7 +52,7 @@ void DotsEditor::DotsEditor_Draw()
 
 	ImGui::Checkbox("Collision test", &CollisionCheck);
 
-	ImGui::InputInt("DotAmount", &scene->dotCount, 10, 100);
+	ImGui::InputInt("DotAmount", &scene->pendingDotCount, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotSpeed, 1.0f, 10.0f);
 	ImGui::SliderFloat("DotBounds", &scene->bounds, 10.0f, 200.0f);
 

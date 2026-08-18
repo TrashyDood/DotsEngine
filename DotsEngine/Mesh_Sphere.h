@@ -9,7 +9,7 @@ protected:
 public:
 	Mesh_Sphere(float aRadius, glm::vec3 aColor);
 
-	const inline float SetRadius() const { return radius; }
+	const inline float Radius() const { return radius; }
 
 protected:
 	void Mesh_ConstructMesh() override;

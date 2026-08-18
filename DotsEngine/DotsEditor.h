@@ -21,4 +21,3 @@ private:
 	bool CollisionCheck;
 	bool leakingMemory;
 };
-

@@ -8,6 +8,8 @@
 
 #include "tracy/Tracy.hpp"
 
+#include "DotsEditor.h"
+
 #define LOG(x) std::cout << x << std::endl;
 
 namespace Colors
@@ -59,15 +61,13 @@ void DotsScene::DotsScene_Start()
 {
 	LOG("started!");
 
-	//dots = std::make_unique<Dot[]>(dotCount);
-	//dotColliders = std::make_unique<Collider * []>(dotCount);
-
 	DotsScene_ClearDots();
 
-	dots = new Dot[dotCount];
-	dotColliders = new Collider * [dotCount];
+	dotsCount = pendingDotCount;
+	dots = new Dot[dotsCount];
+	colliders = new Collider*[dotsCount];
 
-	for (size_t i = 0; i < dotCount; i++)
+	for (size_t i = 0; i < dotsCount; i++)
 		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), i);
 
 	isRunning = true;
@@ -80,7 +80,6 @@ void DotsScene::DotsScene_Render()
 	//DotsScene_NaiveDotRender();
 	DotsScene_InstancedDotRender();
 	DotsScene_DrawBounds();
-	collisionTree.DrawBounds();
 }
 
 void DotsScene::DotsScene_Update()
@@ -90,16 +89,16 @@ void DotsScene::DotsScene_Update()
 	flyingCamera->Update();
 
 	//Handle velocity
-	for (size_t i = 0; i < dotCount; i++)
-		dots[i].SetPosition(dots[i].GetPosition() + glm::normalize(dots[i].velocity) *
-			(dotSpeed / dots[i].GetRadius()) * Time::deltaTime);
+	for (size_t i = 0; i < dotsCount; i++)
+		dots[i].position = dots[i].position + glm::normalize(dots[i].velocity) *
+		(dotSpeed / dots[i].radius) * Time::deltaTime;
 
 	DotsScene_HandleBoundsCollisions();
 	DotsScene_HandleDotsCollisions();
 
 	//Look for nan's
-	//for (size_t i = 0; i < dotCount; i++)
-	//	if (glm::any(glm::isnan(dots[i].GetPosition())))
+	//for (size_t i = 0; i < dotsCount; i++)
+	//	if (glm::any(glm::isnan(dots[i].position)))
 	//		std::cout << "NAN FOUND IN DOT" << std::endl;
 }
 
@@ -112,7 +111,7 @@ Dot DotsScene::DotsScene_CreateDot(glm::vec3 aPosition, glm::vec3 aVelocity)
 {
 	Dot newDot;
 	newDot.SetHealth(3);
-	newDot.SetPosition(aPosition);
+	newDot.position = aPosition;
 	newDot.velocity = aVelocity;
 
 	return newDot;
@@ -128,19 +127,21 @@ Dot DotsScene::DotsScene_CreateRandomDot()
 
 void DotsScene::DotsScene_ReplaceDot(const Dot& dot, size_t index)
 {
-	if (index >= dotCount)
+	if (index >= dotsCount)
 		return;
 
 	dots[index] = dot;
-	dotColliders[index] = &dots[index];
+	colliders[index] = &dots[index];
 }
 
 void DotsScene::DotsScene_ClearDots()
 {
 	delete[] dots;
-	delete[] dotColliders;
+	delete[] colliders;
+
+	colliders = nullptr;
 	dots = nullptr;
-	dotColliders = nullptr;
+	dotsCount = 0;
 }
 
 void DotsScene::DotsScene_HandleDotsCollisions()
@@ -148,50 +149,55 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	{
 		ZoneScopedNC("Create Collision Tree", Colors::Collision);
 
-		collisionTree.Build(dotColliders, dotCount, bounds);
+		collisionTree.Build(colliders, dotsCount, bounds);
+
+		LOG("Overflow: " << collisionTree.OverflowCount() <<
+			"(" << (float)collisionTree.OverflowCount() / dotsCount * 100 << "%)");
 	}
 
-	std::vector<std::vector<int>> nearbyPerDot(dotCount);
+	std::vector<std::vector<int>> nearbyPerDot(dotsCount);
 
 	{
 		ZoneScopedNC("Query Collisions", Colors::Collision);
-
-		for (size_t dot1 = 0; dot1 < dotCount; dot1++)
-			collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
-
-		//size_t chunkSize = (dotCount + threadPool.threadCount - 1) / threadPool.threadCount;
-		//size_t futureCount = 0;
-
-		//std::future<void> threadResults[threadPool.threadCount];
-
-		//for (size_t start = 0; start < dotCount; start += chunkSize)
-		//{
-		//	size_t end = std::min(start + chunkSize, (size_t)dotCount);
-		//	threadResults[futureCount++] = threadPool.Submit([this, start, end, &nearbyPerDot]()
-		//	{
-		//		for (size_t dot1 = start; dot1 < end; dot1++)
-		//			collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
-		//	});
-		//}
-
-		//for (size_t i = 0; i < futureCount; i++)
-		//	threadResults[i].get();
+		DotsScene_QueryCollisions_Threaded(nearbyPerDot);
 	}
 
 	{
 		ZoneScopedNC("Resolve Collisions", Colors::Collision);
 
-		for (size_t dot1 = 0; dot1 < dotCount; dot1++)
+		for (size_t dot1 = 0; dot1 < dotsCount; dot1++)
 			for (size_t dot2 : nearbyPerDot[dot1])
 				if (dot2 > dot1)
-					DotsScene_HandleDotsCollide(dot1, dot2);
+					DotsScene_ResolveCollision(dot1, dot2);
 	}
 }
 
-void DotsScene::DotsScene_HandleDotsCollide(int dotIndex1, int dotIndex2)
+void DotsScene::DotsScene_QueryCollisions_Threaded(std::vector<std::vector<int>>& out)
 {
-	float radiusSum = dots[dotIndex1].GetRadius() + dots[dotIndex2].GetRadius();
-	glm::vec3 diff = dots[dotIndex1].GetPosition() - dots[dotIndex2].GetPosition();
+	size_t chunkSize = (dotsCount + threadPool.threadCount - 1) / threadPool.threadCount;
+	size_t futureCount = 0;
+
+	std::future<void> threadResults[threadPool.threadCount];
+
+	for (size_t start = 0; start < dotsCount; start += chunkSize)
+	{
+		size_t end = std::min(start + chunkSize, dotsCount);
+
+		threadResults[futureCount++] = threadPool.Submit([this, start, end, &out]()
+			{
+				for (size_t dot1 = start; dot1 < end; dot1++)
+					collisionTree.Query(&dots[dot1], out[dot1]);
+			});
+	}
+
+	for (size_t i = 0; i < futureCount; i++)
+		threadResults[i].get();
+}
+
+void DotsScene::DotsScene_ResolveCollision(int dotIndex1, int dotIndex2)
+{
+	float radiusSum = dots[dotIndex1].radius + dots[dotIndex2].radius;
+	glm::vec3 diff = dots[dotIndex1].position - dots[dotIndex2].position;
 	float distSqr = glm::length2(diff);
 
 	if (!(distSqr < radiusSum * radiusSum && distSqr > 0.0001f))
@@ -219,46 +225,26 @@ void DotsScene::DotsScene_HandleBoundsCollisions()
 {
 	ZoneScopedNC("Handle Bounds Collision", Colors::Collision);
 
-	for (size_t i = 0; i < dotCount; i++)
+	for (size_t i = 0; i < dotsCount; i++)
 	{
 		Dot& dot = dots[i];
 
-		if (dot.GetPosition().x > bounds - dot.GetRadius() || dot.GetPosition().x < -bounds + dot.GetRadius()) dot.velocity.x *= -1;
-		if (dot.GetPosition().y > bounds - dot.GetRadius() || dot.GetPosition().y < -bounds + dot.GetRadius()) dot.velocity.y *= -1;
-		if (dot.GetPosition().z > bounds - dot.GetRadius() || dot.GetPosition().z < -bounds + dot.GetRadius()) dot.velocity.z *= -1;
+		if (dot.position.x > bounds - dot.radius || dot.position.x < -bounds + dot.radius) dot.velocity.x *= -1;
+		if (dot.position.y > bounds - dot.radius || dot.position.y < -bounds + dot.radius) dot.velocity.y *= -1;
+		if (dot.position.z > bounds - dot.radius || dot.position.z < -bounds + dot.radius) dot.velocity.z *= -1;
 
-		dot.position.x = glm::clamp(dot.GetPosition().x, -bounds + dot.GetRadius(), bounds - dot.GetRadius());
-		dot.position.y = glm::clamp(dot.GetPosition().y, -bounds + dot.GetRadius(), bounds - dot.GetRadius());
-		dot.position.z = glm::clamp(dot.GetPosition().z, -bounds + dot.GetRadius(), bounds - dot.GetRadius());
+		dot.position.x = glm::clamp(dot.position.x, -bounds + dot.radius, bounds - dot.radius);
+		dot.position.y = glm::clamp(dot.position.y, -bounds + dot.radius, bounds - dot.radius);
+		dot.position.z = glm::clamp(dot.position.z, -bounds + dot.radius, bounds - dot.radius);
 	}
-}
-
-void DotsScene::DotsScene_HandleDeadDots()
-{
-	//ZoneScopedNC("Handle Dead Dots", Colors::Update);
-
-	//std::vector<size_t> toRemove;
-
-	//for (size_t i = 0; i < dots.size(); i++)
-	//{
-	//	if (dots[i].Health <= 0)
-	//	{
-	//		toRemove.push_back(i);
-	//		DotsScene_CreateRandomDot();
-	//	}
-	//}
-
-	////Handle removal from vector and spawning new dot
-	//for (int i = toRemove.size() - 1; i >= 0; i--)
-	//	dots.erase(dots.begin() + toRemove[i]);
 }
 
 void DotsScene::DotsScene_NaiveDotRender()
 {
 	ZoneScopedNC("Naive Rendering", Colors::Render);
 
-	for (size_t i = 0; i < dotCount; i++)
-		dots[i].mesh->Mesh_RenderSingle(DotAssets::SphereShader(), dots[i].GetPosition());
+	for (size_t i = 0; i < dotsCount; i++)
+		dots[i].mesh->Mesh_RenderSingle(DotAssets::SphereShader(), dots[i].position);
 }
 
 void DotsScene::DotsScene_InstancedDotRender()
@@ -271,8 +257,8 @@ void DotsScene::DotsScene_InstancedDotRender()
 		instances.clear();
 
 	// add a mesh instance for every dot
-	for (size_t i = 0; i < dotCount; i++)
-		meshModelInstances[dots[i].Health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].GetPosition()));
+	for (size_t i = 0; i < dotsCount; i++)
+		meshModelInstances[dots[i].Health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].position));
 
 	SphereShader()->Bind();
 	SphereShader()->SetUniformMat4("ViewProjection", mainCamera->GetViewProjection());
@@ -312,7 +298,7 @@ void DotsScene::DotsScene_LeaderBoardMode()
 	DotsScene_ClearDots();
 	float spacing = 8.0f;
 	float volumePerEntity = spacing * spacing * spacing;
-	float totalVolume = dotCount * volumePerEntity;
+	float totalVolume = pendingDotCount * volumePerEntity;
 	dotSpeed = 7.0f;
 	bounds = cbrt(totalVolume);
 	DotsScene_Start();

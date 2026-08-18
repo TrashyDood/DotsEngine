@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <memory>
+#include <math.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 
@@ -9,56 +10,77 @@
 #include <glm/gtx/norm.hpp>
 
 #include "DebugLines.h"
+#include "tracy/Tracy.hpp"
 
-#include <iostream>
-
-class Collider
+struct BoundingBox
 {
-public:
-	glm::vec3 position{};
-	float radius = 0;
+	glm::vec3 center;
+	float halfSize;
+
+	BoundingBox(glm::vec3 center, float halfSize) :
+		center(center), halfSize(halfSize) { }
 };
+
+namespace Utils
+{
+	inline constexpr bool SphereFitsAABB(const glm::vec3* position, float radius, const BoundingBox& box)
+	{
+		glm::vec3 axisDistance = glm::abs(*position - box.center);
+		return std::max({ axisDistance.x, axisDistance.y, axisDistance.z }) + radius <= box.halfSize;
+	}
+
+	inline bool SphereOverlapsAABB(const glm::vec3* position, float radius, const BoundingBox& box)
+	{
+		return glm::length2(
+			(glm::clamp(*position,
+				box.center - glm::vec3(box.halfSize),
+				box.center + glm::vec3(box.halfSize))) - *position) <= radius * radius;
+	}
+}
+
+struct Collider
+{
+	glm::vec3 position;
+	float radius;
+
+	Collider(glm::vec3 position = {}, float radius = 0) :
+		position(position), radius(radius) { }
+
+	constexpr bool FitsAABB(const BoundingBox& box) const { return Utils::SphereFitsAABB(&position, radius, box); }
+	bool OverlapsAABB(const BoundingBox& box) const { return Utils::SphereOverlapsAABB(&position, radius, box); }
+ };
 
 template<unsigned char MaxDepth, unsigned char CellCapacity>
 class CollisionTree
 {
 public:
-	struct Cell
+	struct Cell : public BoundingBox
 	{
-		inline constexpr bool IsLeaf() const { return childrenBaseIndex == -1; }
-		inline constexpr int GetChildIndex(const glm::vec3& position) const // converts position to child index
+		int colliderIndices[CellCapacity]{};
+		int colliderCount = 0;
+
+		int childrenBaseIndex = -1; // the index of our first child cell in the cell pool
+
+		Cell(glm::vec3 center = {}, float halfSize = 0) : BoundingBox(center, halfSize) {}
+
+		constexpr bool IsLeaf() const { return childrenBaseIndex == -1; }
+
+		// converts position to child index
+		constexpr int GetChildIndex(const glm::vec3& position) const
 		{
 			return (position.x > center.x) | // 0-1 +
 				((position.y > center.y) << 1) | // 0-2 +
 				((position.z > center.z) << 2); // 0-4
 		}
 
-		glm::vec3 center{};
-		float halfSize = 0;
+		void ClearColliders() { colliderCount = 0; 	}
 
-		std::vector<int> colliderIndices{};
-		//int colliderIndices[CellCapacity]{};
-		int colliderCount = 0;
-
-		int childrenBaseIndex = -1; // the index of our first child cell in the cell pool
-
-		Cell() {}
-		Cell(glm::vec3 center, float halfSize) :
-			center(center), halfSize(halfSize) {}
-
-		void ClearColliders()
-		{ 
-			colliderCount = 0;
-			colliderIndices.clear();
-		}
-
-		bool AddCollider(int index, bool resize = false)
+		bool AddCollider(int index)
 		{
-			if (colliderCount >= CellCapacity && !resize)
+			if (colliderCount >= CellCapacity)
 				return false;
 
-			//colliderIndices[colliderCount] = index;
-			colliderIndices.push_back(index);
+			colliderIndices[colliderCount] = index;
 			colliderCount++;
 
 			return true;
@@ -66,7 +88,6 @@ public:
 	};
 
 	constexpr int OverflowCount() const { return overflowCount; }
-
 	constexpr int ColliderCount() const { return colliderCount; }
 
 	static constexpr int CellPoolSize(uint16_t maxDepth = MaxDepth)
@@ -83,6 +104,9 @@ public:
 		return total;
 	}
 
+	static constexpr unsigned char maxDepth = MaxDepth;
+	static constexpr unsigned char cellCapacity = CellCapacity;
+
 private:
 	Collider** colliders = nullptr;
 	int colliderCount = 0;
@@ -92,13 +116,13 @@ private:
 
 	float halfSize = 0;
 	int overflowCount = 0;
-	uint16_t cellSplitThreshhold = 0;
+	unsigned char cellSplitThreshhold = 0;
 
 public:
-	CollisionTree(uint16_t cellSplitThreshhold = CellCapacity) :
+	CollisionTree(unsigned char cellSplitThreshhold = CellCapacity) :
 		cellSplitThreshhold(cellSplitThreshhold) { }
 
-	void ResetCells(float halfSize, glm::vec3 center = glm::vec3())
+	void Reset(float halfSize, glm::vec3 center = glm::vec3())
 	{
 		CollisionTree::halfSize = halfSize;
 
@@ -115,18 +139,15 @@ public:
 		colliders = newColliders;
 		colliderCount = count;
 
-		ResetCells(halfSize);
+		Reset(halfSize);
 
 		for (int i = 0; i < count; i++)
 			InsertAt(0, i, 0);
 	}
 
-	void Query(const Collider* collider, std::vector<int>& out) const
-	{
-		QueryAt(0, collider, out);
-	}
+	void Query(const Collider* collider, std::vector<int>& out) const { QueryAt(0, collider, out); }
 
-	void DrawBounds() const { DrawCell(0); }
+	void Draw() const { DrawAt(0); }
 
 private:
 	// reserves a given range of indices in the cell pool
@@ -144,24 +165,25 @@ private:
 	void InsertAt(int cellIndex, int colliderIndex, int depth)
 	{
 		Cell& cell = cellPool[cellIndex];
+		Collider* collider = colliders[colliderIndex];
 
 		if (!cell.IsLeaf())
 		{
 			int childCellIndex = cell.childrenBaseIndex +
 				cell.GetChildIndex(colliders[colliderIndex]->position);
 
-			if (FitsInsideChild(colliders[colliderIndex], cellPool[childCellIndex]))
+			if (collider->FitsAABB(cellPool[childCellIndex]))
 			{
 				InsertAt(childCellIndex, colliderIndex, depth + 1);
 				return;
 			}
 
-			overflowCount += !cell.AddCollider(colliderIndex, true);
+			overflowCount += !cell.AddCollider(colliderIndex);
 			return;
 		}
 
 		// check if we could add the collider to cell
-		if (!cell.AddCollider(colliderIndex, (depth >= (int)MaxDepth)))
+		if (!cell.AddCollider(colliderIndex))
 		{
 			overflowCount++;
 			return;
@@ -213,13 +235,11 @@ private:
 		if (cell.IsLeaf()) return;
 
 		for (size_t i = 0; i < 8; i++)
-			if (SphereBoxOverlap(collider->position, collider->radius,
-				cellPool[cell.childrenBaseIndex + i].center, cellPool[cell.childrenBaseIndex + i].halfSize))
+			if (collider->OverlapsAABB(cellPool[cell.childrenBaseIndex + i]))
 					QueryAt(cell.childrenBaseIndex + i, collider, out);
 	}
 
-
-	void DrawCell(int cellIndex) const
+	void DrawAt(int cellIndex) const
 	{
 		const Cell& cell = cellPool[cellIndex];
 
@@ -228,19 +248,217 @@ private:
 
 		if (!cell.IsLeaf())
 			for (size_t i = 0; i < 8; i++)
-				DrawCell(cell.childrenBaseIndex + i);
-	}
-
-	// checks if collider fits entirely inside cell.
-	bool FitsInsideChild(Collider* collider, Cell& cell) const
-	{
-		glm::vec3 d = glm::abs(collider->position - cell.center);
-		return std::max({ d.x, d.y, d.z }) + collider->radius <= cell.halfSize;
-	}
-
-	static bool SphereBoxOverlap(glm::vec3 position, float radius, glm::vec3 c, float hs)
-	{
-		glm::vec3 closest = glm::clamp(position, c - glm::vec3(hs), c + glm::vec3(hs));
-		return glm::length2(closest - position) <= radius * radius;
+				DrawAt(cell.childrenBaseIndex + i);
 	}
 };
+
+//// SoA tree
+//template<unsigned char MaxDepth, unsigned char CellCapacity>
+//class CollisionTree
+//{
+//public:
+//	struct Cell : public BoundingBox
+//	{
+//		int colliderIndices[CellCapacity]{};
+//		int colliderCount = 0;
+//
+//		int childrenBaseIndex = -1; // the index of our first child cell in the cell pool
+//
+//		Cell(glm::vec3 center = {}, float halfSize = 0) : BoundingBox(center, halfSize) {}
+//
+//		constexpr bool IsLeaf() const { return childrenBaseIndex == -1; }
+//
+//		// converts position to child index
+//		constexpr int GetChildIndex(const glm::vec3* position) const
+//		{
+//			return (position->x > center.x) | // 0-1 +
+//				((position->y > center.y) << 1) | // 0-2 +
+//				((position->z > center.z) << 2); // 0-4
+//		 }
+//
+//		void ClearColliders() { colliderCount = 0; }
+//
+//		bool AddCollider(int index)
+//		{
+//			if (colliderCount >= CellCapacity)
+//				return false;
+//
+//			colliderIndices[colliderCount] = index;
+//			colliderCount++;
+//
+//			return true;
+//		}
+//	};
+//
+//	constexpr int OverflowCount() const { return overflowCount; }
+//	constexpr int ColliderCount() const { return colliderCount; }
+//
+//	static constexpr int CellPoolSize(uint16_t maxDepth = MaxDepth)
+//	{
+//		int total = 0;
+//		int levelCount = 1;
+//
+//		for (int i = 0; i <= maxDepth; i++)
+//		{
+//			total += levelCount;
+//			levelCount *= 8;
+//		}
+//
+//		return total;
+//	}
+//
+//	static constexpr unsigned char maxDepth = MaxDepth;
+//	static constexpr unsigned char cellCapacity = CellCapacity;
+//
+//private:
+//	glm::vec3* positions = nullptr;
+//	float* radii = nullptr;
+//	size_t colliderCount = 0;
+//
+//	Cell cellPool[CellPoolSize()];
+//	int occupiedCellsCount = 1;
+//
+//	float halfSize = 0;
+//	int overflowCount = 0;
+//	unsigned char cellSplitThreshhold = 0;
+//
+//public:
+//	CollisionTree(unsigned char cellSplitThreshhold = CellCapacity) :
+//		cellSplitThreshhold(cellSplitThreshhold) { }
+//
+//	void Reset(float halfSize, glm::vec3 center = glm::vec3())
+//	{
+//		CollisionTree::halfSize = halfSize;
+//
+//		occupiedCellsCount = 1; // index 0 is the root, already occupied
+//		cellPool[0] = Cell{};
+//		cellPool[0].center = center;
+//		cellPool[0].halfSize = halfSize;
+//
+//		colliderCount = 0;
+//		overflowCount = 0;
+//	}
+//
+//	void Build(glm::vec3* positions, float* radii, size_t count, float halfSize)
+//	{
+//		Reset(halfSize);
+//
+//		colliderCount = count;
+//		CollisionTree::positions = positions;
+//		CollisionTree::radii = radii;
+//
+//		for (int i = 0; i < count; i++)
+//			InsertAt(0, i, 0);
+//	}
+//
+//	void Query(const glm::vec3* position, float radius, std::vector<int>& out) const { QueryAt(0, position, radius, out); }
+//	void Draw() const { DrawAt(0); }
+//
+//private:
+//	// reserves a given range of indices in the cell pool
+//	int ReserveCells(int count)
+//	{
+//		if (occupiedCellsCount + count > CellPoolSize())
+//			return -1;
+//
+//		int result = (int)occupiedCellsCount;
+//		occupiedCellsCount += count;
+//
+//		return result;
+//	}
+//
+//	void InsertAt(int cellIndex, int colliderIndex, int depth)
+//	{
+//		Cell& cell = cellPool[cellIndex];
+//
+//		glm::vec3* position = &positions[colliderIndex];
+//		float* radius = &radii[colliderIndex];
+//
+//		if (!cell.IsLeaf())
+//		{
+//			int childCellIndex = cell.childrenBaseIndex + cell.GetChildIndex(position);
+//
+//			if (Utils::SphereFitsAABB(position, *radius, cellPool[childCellIndex]))
+//			{
+//				InsertAt(childCellIndex, colliderIndex, depth + 1);
+//				return;
+//			}
+//
+//			overflowCount += !cell.AddCollider(colliderIndex);
+//			return;
+//		}
+//
+//		if (!cell.AddCollider(colliderIndex))
+//		{
+//			overflowCount++;
+//			return;
+//		}
+//
+//		if (!(cell.colliderCount >= cellSplitThreshhold && depth < (int)MaxDepth))
+//			return;
+//
+//		int baseIndex = ReserveCells(8);
+//		if (baseIndex < 0)
+//			return;
+//
+//		float halfsize = cell.halfSize * 0.5f;
+//		cell.childrenBaseIndex = baseIndex;
+//
+//		for (int i = 0; i < 8; i++)
+//			cellPool[baseIndex + i] = Cell(
+//				cell.center + glm::vec3(
+//					(i & 1) ? halfsize : -halfsize,
+//					(i & 2) ? halfsize : -halfsize,
+//					(i & 4) ? halfsize : -halfsize),
+//				halfsize);
+//
+//		uint32_t oldIndices[CellCapacity];
+//		int oldCount = cell.colliderCount;
+//
+//		for (int i = 0; i < oldCount; i++)
+//			oldIndices[i] = cell.colliderIndices[i];
+//
+//		cell.ClearColliders();
+//
+//		for (int i = 0; i < oldCount; i++)
+//			InsertAt(cellIndex, oldIndices[i], depth);
+//	}
+//
+//	void QueryAt(const int cellIndex, const glm::vec3* position, float radius, std::vector<int>& out) const
+//	{
+//		const Cell& cell = cellPool[cellIndex];
+//
+//		for (uint16_t i = 0; i < cell.colliderCount; i++)
+//		{
+//			glm::vec3* otherPosition = &positions[cell.colliderIndices[i]];
+//			float* otherRadius = &radii[cell.colliderIndices[i]];
+//
+//			float rSum = radius + *otherRadius;
+//
+//			if (glm::length2(*otherPosition - *position) <= rSum * rSum)
+//				out.push_back(cell.colliderIndices[i]);
+//		}
+//
+//		if (cell.IsLeaf())
+//			return;
+//
+//		for (size_t i = 0; i < 8; i++)
+//			if (Utils::SphereOverlapsAABB(
+//				position,
+//				radius,
+//				cellPool[cell.childrenBaseIndex + i]))
+//				QueryAt(cell.childrenBaseIndex + i, position, radius, out);
+//	}
+//
+//	void DrawAt(int cellIndex) const
+//	{
+//		const Cell& cell = cellPool[cellIndex];
+//
+//		if (cell.colliderCount)
+//			DebugLines::DrawCube(cell.center, glm::quat(), glm::vec3(cell.halfSize), glm::vec3(1, 1, 1));
+//
+//		if (!cell.IsLeaf())
+//			for (size_t i = 0; i < 8; i++)
+//				DrawAt(cell.childrenBaseIndex + i);
+//	}
+//};
