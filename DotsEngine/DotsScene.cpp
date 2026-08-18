@@ -6,8 +6,6 @@
 #include <random>
 #include <glm/gtc/random.hpp>
 
-#include "ThreadPool.h"
-
 #include "tracy/Tracy.hpp"
 
 #define LOG(x) std::cout << x << std::endl;
@@ -61,8 +59,13 @@ void DotsScene::DotsScene_Start()
 {
 	LOG("started!");
 
-	dots = std::make_unique<Dot[]>(dotCount);
-	dotColliders = std::make_unique<Collider * []>(dotCount);
+	//dots = std::make_unique<Dot[]>(dotCount);
+	//dotColliders = std::make_unique<Collider * []>(dotCount);
+
+	DotsScene_ClearDots();
+
+	dots = new Dot[dotCount];
+	dotColliders = new Collider * [dotCount];
 
 	for (size_t i = 0; i < dotCount; i++)
 		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), i);
@@ -134,8 +137,10 @@ void DotsScene::DotsScene_ReplaceDot(const Dot& dot, size_t index)
 
 void DotsScene::DotsScene_ClearDots()
 {
-	dots.reset();
-	dotColliders.reset();
+	delete[] dots;
+	delete[] dotColliders;
+	dots = nullptr;
+	dotColliders = nullptr;
 }
 
 void DotsScene::DotsScene_HandleDotsCollisions()
@@ -143,8 +148,7 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	{
 		ZoneScopedNC("Create Collision Tree", Colors::Collision);
 
-		collisionTree.Build(dotColliders.get(), dotCount, bounds);
-		LOG("Overflow: " << collisionTree.OverflowCount() << " / " << collisionTree.ColliderCount());
+		collisionTree.Build(dotColliders, dotCount, bounds);
 	}
 
 	std::vector<std::vector<int>> nearbyPerDot(dotCount);
@@ -152,77 +156,36 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	{
 		ZoneScopedNC("Query Collisions", Colors::Collision);
 
-		size_t threadCount = std::thread::hardware_concurrency();
-		size_t chunkSize = (dotCount + threadCount - 1) / threadCount;
+		for (size_t dot1 = 0; dot1 < dotCount; dot1++)
+			collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
 
-		std::vector<std::future<void>> futures;
+		//size_t chunkSize = (dotCount + threadPool.threadCount - 1) / threadPool.threadCount;
+		//size_t futureCount = 0;
 
-		for (size_t start = 0; start < dotCount; start += chunkSize)
-		{
-			size_t end = std::min(start + chunkSize, (size_t)dotCount);
+		//std::future<void> threadResults[threadPool.threadCount];
 
-			futures.push_back(GlobalThreadPool().Submit([this, start, end, &nearbyPerDot]()
-				{
-					for (size_t dot1 = start; dot1 < end; dot1++)
-						collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
-				}));
-		}
+		//for (size_t start = 0; start < dotCount; start += chunkSize)
+		//{
+		//	size_t end = std::min(start + chunkSize, (size_t)dotCount);
+		//	threadResults[futureCount++] = threadPool.Submit([this, start, end, &nearbyPerDot]()
+		//	{
+		//		for (size_t dot1 = start; dot1 < end; dot1++)
+		//			collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
+		//	});
+		//}
 
-		for (auto& future : futures)
-			future.get();
+		//for (size_t i = 0; i < futureCount; i++)
+		//	threadResults[i].get();
 	}
 
 	{
 		ZoneScopedNC("Resolve Collisions", Colors::Collision);
 
 		for (size_t dot1 = 0; dot1 < dotCount; dot1++)
-			for (uint32_t dot2 : nearbyPerDot[dot1])
+			for (size_t dot2 : nearbyPerDot[dot1])
 				if (dot2 > dot1)
 					DotsScene_HandleDotsCollide(dot1, dot2);
 	}
-
-#pragma region old
-	//	{
-	//		ZoneScopedNC("Query Collisions", Colors::Collision);
-
-	//		collisionTree.Query(&dots[dot1], nearby);
-	//	}
-
-	//	{
-	//		ZoneScopedNC("Resolve Collisions", Colors::Collision);
-
-	//		for (size_t dot2 : nearby)
-	//		{
-	//			if (dot2 <= dot1) continue;
-
-	//			float radiusSum = dots[dot1].GetRadius() + dots[dot2].GetRadius();
-	//			glm::vec3 diff = dots[dot1].GetPosition() - dots[dot2].GetPosition();
-	//			float distSqr = glm::length2(diff);
-
-	//			if (distSqr < radiusSum * radiusSum && distSqr > 0.0001f)
-	//			{
-	//				float dist = std::sqrt(distSqr);
-	//				glm::vec3 normal = diff / dist;
-
-	//				float overlap = radiusSum - dist;
-	//				glm::vec3 correction = normal * (overlap * 0.5f * 0.2f);
-	//				dots[dot1].position += correction;
-	//				dots[dot2].position -= correction;
-
-	//				dots[dot1].velocity = glm::reflect(dots[dot1].velocity, normal);
-	//				dots[dot2].velocity = glm::reflect(dots[dot2].velocity, -normal);
-
-	//				// damage dots, if dead replace
-	//				if (!dots[dot1].SetHealth(dots[dot1].Health - 1))
-	//					DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), dot1);
-
-	//				if (!dots[dot2].SetHealth(dots[dot2].Health - 1))
-	//					DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), dot2);
-	//			}
-	//		}
-	//	}
-	//}
-#pragma endregion
 }
 
 void DotsScene::DotsScene_HandleDotsCollide(int dotIndex1, int dotIndex2)
@@ -304,12 +267,12 @@ void DotsScene::DotsScene_InstancedDotRender()
 
 	using namespace DotAssets;
 
-	for (auto& instances : meshInstances)
+	for (auto& instances : meshModelInstances)
 		instances.clear();
 
 	// add a mesh instance for every dot
 	for (size_t i = 0; i < dotCount; i++)
-		meshInstances[dots[i].Health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].GetPosition()));
+		meshModelInstances[dots[i].Health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].GetPosition()));
 
 	SphereShader()->Bind();
 	SphereShader()->SetUniformMat4("ViewProjection", mainCamera->GetViewProjection());
@@ -318,8 +281,8 @@ void DotsScene::DotsScene_InstancedDotRender()
 	// update mesh instances and then render them
 	for (size_t i = 0; i < meshCount; i++)
 	{
-		Meshes()[i]->Mesh_UpdateInstanceData(meshInstances[i]);
-		Meshes()[i]->Mesh_RenderInstanced(SphereShader(), meshInstances[i].size());
+		Meshes()[i]->Mesh_UpdateInstanceData(meshModelInstances[i]);
+		Meshes()[i]->Mesh_RenderInstanced(SphereShader(), meshModelInstances[i].size());
 	}
 }
 
@@ -335,10 +298,9 @@ DotsScene::~DotsScene()
 {
 	delete mainCamera;
 	delete flyingCamera;
+	delete DotAssets::SphereShader();
 
-	using namespace DotAssets;
-
-	delete SphereShader();
+	DotsScene_ClearDots();
 
 	for (auto& mesh : DotAssets::Meshes())
 		delete mesh;

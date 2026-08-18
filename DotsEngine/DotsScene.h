@@ -8,6 +8,7 @@
 #include "Shader.h"
 
 #include "Octree.h"
+#include "ThreadPool.h"
 
 namespace DotAssets
 {
@@ -55,12 +56,15 @@ struct Dot : public Collider
 class DotsScene
 {
 	// stores dot instances for every different mesh
-	std::vector<glm::mat4> meshInstances[DotAssets::meshCount];
-	std::unique_ptr<Dot[]> dots;
-	std::unique_ptr<Collider* []> dotColliders;
+	std::vector<glm::mat4> meshModelInstances[DotAssets::meshCount];
+	//std::unique_ptr<Dot[]> dots;
+	//std::unique_ptr<Collider* []> dotColliders;
+	Dot* dots = nullptr;
+	Collider** dotColliders = nullptr;
 
 	FlyingCamera* flyingCamera = nullptr;
-	CollisionTree<5, 30> collisionTree = CollisionTree<5, 30>(20);
+	CollisionTree<6, 15> collisionTree = CollisionTree<6, 15>(7);
+	ThreadPool<32> threadPool;
 
 public:
 	static Camera* mainCamera;

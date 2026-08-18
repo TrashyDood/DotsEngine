@@ -9,6 +9,7 @@
 #include <future>
 #include <atomic>
 
+template<unsigned char ThreadCount>
 class ThreadPool
 {
 	std::vector<std::thread> workers;
@@ -19,9 +20,11 @@ class ThreadPool
 	bool stopping = false;
 
 public:
-	explicit ThreadPool(size_t threadCount = std::thread::hardware_concurrency())
+	static constexpr unsigned char threadCount = ThreadCount;
+
+	explicit ThreadPool()
 	{
-		for (size_t i = 0; i < threadCount; i++)
+		for (size_t i = 0; i < ThreadCount; i++)
 			workers.emplace_back([this]() { WorkerLoop(); });
 	}
 
@@ -39,7 +42,7 @@ public:
 	template<typename F, typename... Args>
 	auto Submit(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type>
 	{
-		using ReturnType = typename std::result_of<F(Args...)>::type; // alias
+		using ReturnType = typename std::result_of<F(Args...)>::type;
 
 		auto task = std::make_shared<std::packaged_task<ReturnType()>>(
 			std::bind(std::forward<F>(f), std::forward<Args>(args)...));
@@ -78,9 +81,3 @@ private:
 		}
 	}
 };
-
-inline ThreadPool& GlobalThreadPool()
-{
-	static ThreadPool pool(12);
-	return pool;
-}

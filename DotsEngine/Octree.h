@@ -11,7 +11,6 @@
 #include "DebugLines.h"
 
 #include <iostream>
-#include <vector>
 
 class Collider
 {
@@ -20,7 +19,7 @@ public:
 	float radius = 0;
 };
 
-template<uint16_t MaxDepth, uint16_t CellCapacity>
+template<unsigned char MaxDepth, unsigned char CellCapacity>
 class CollisionTree
 {
 public:
@@ -47,7 +46,11 @@ public:
 		Cell(glm::vec3 center, float halfSize) :
 			center(center), halfSize(halfSize) {}
 
-		void ClearColliders() { colliderCount = 0; }
+		void ClearColliders()
+		{ 
+			colliderCount = 0;
+			colliderIndices.clear();
+		}
 
 		bool AddCollider(int index, bool resize = false)
 		{
@@ -61,6 +64,10 @@ public:
 			return true;
 		}
 	};
+
+	constexpr int OverflowCount() const { return overflowCount; }
+
+	constexpr int ColliderCount() const { return colliderCount; }
 
 	static constexpr int CellPoolSize(uint16_t maxDepth = MaxDepth)
 	{
@@ -90,10 +97,6 @@ private:
 public:
 	CollisionTree(uint16_t cellSplitThreshhold = CellCapacity) :
 		cellSplitThreshhold(cellSplitThreshhold) { }
-
-	constexpr int OverflowCount() const { return overflowCount; }
-
-	constexpr int ColliderCount() const { return colliderCount; }
 
 	void ResetCells(float halfSize, glm::vec3 center = glm::vec3())
 	{
