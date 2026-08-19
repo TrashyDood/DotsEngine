@@ -56,6 +56,7 @@ class CollisionTree
 public:
 	struct Cell : public BoundingBox
 	{
+		//std::vector<int> colliderIndices{};
 		int colliderIndices[CellCapacity]{};
 		int colliderCount = 0;
 
@@ -73,13 +74,18 @@ public:
 				((position.z > center.z) << 2); // 0-4
 		}
 
-		void ClearColliders() { colliderCount = 0; 	}
-
-		bool AddCollider(int index)
+		void ClearColliders()
 		{
-			if (colliderCount >= CellCapacity)
+			//colliderIndices.clear();
+			colliderCount = 0;
+		}
+
+		bool AddCollider(int index, bool resize = false)
+		{
+			if (colliderCount >= CellCapacity/* && !resize*/)
 				return false;
 
+			//colliderIndices.push_back(index);
 			colliderIndices[colliderCount] = index;
 			colliderCount++;
 
@@ -178,12 +184,12 @@ private:
 				return;
 			}
 
-			overflowCount += !cell.AddCollider(colliderIndex);
+			overflowCount += !cell.AddCollider(colliderIndex, true);
 			return;
 		}
 
 		// check if we could add the collider to cell
-		if (!cell.AddCollider(colliderIndex))
+		if (!cell.AddCollider(colliderIndex, depth >= (int)MaxDepth))
 		{
 			overflowCount++;
 			return;

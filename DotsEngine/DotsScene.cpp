@@ -59,11 +59,11 @@ DotsScene::DotsScene()
 
 void DotsScene::DotsScene_Start()
 {
-	LOG("started!");
+	LOG("Dots simulation started!");
 
 	DotsScene_ClearDots();
 
-	dotsCount = pendingDotCount;
+	dotsCount = pendingDotsCount;
 	dots = new Dot[dotsCount];
 	colliders = new Collider*[dotsCount];
 
@@ -71,6 +71,13 @@ void DotsScene::DotsScene_Start()
 		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), i);
 
 	isRunning = true;
+}
+
+void DotsScene::DotsScene_Stop()
+{
+	LOG("Dots simulation stopped!");
+
+	isRunning = false;
 }
 
 void DotsScene::DotsScene_Render()
@@ -151,8 +158,8 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 
 		collisionTree.Build(colliders, dotsCount, bounds);
 
-		LOG("Overflow: " << collisionTree.OverflowCount() <<
-			"(" << (float)collisionTree.OverflowCount() / dotsCount * 100 << "%)");
+		//LOG("Overflow: " << collisionTree.OverflowCount() <<
+		//	"(" << (float)collisionTree.OverflowCount() / dotsCount * 100 << "%)");
 	}
 
 	std::vector<std::vector<int>> nearbyPerDot(dotsCount);
@@ -290,6 +297,8 @@ DotsScene::~DotsScene()
 
 	for (auto& mesh : DotAssets::Meshes())
 		delete mesh;
+
+	DotsScene_Stop();
 }
 
 void DotsScene::DotsScene_LeaderBoardMode()
@@ -298,7 +307,7 @@ void DotsScene::DotsScene_LeaderBoardMode()
 	DotsScene_ClearDots();
 	float spacing = 8.0f;
 	float volumePerEntity = spacing * spacing * spacing;
-	float totalVolume = pendingDotCount * volumePerEntity;
+	float totalVolume = pendingDotsCount * volumePerEntity;
 	dotSpeed = 7.0f;
 	bounds = cbrt(totalVolume);
 	DotsScene_Start();

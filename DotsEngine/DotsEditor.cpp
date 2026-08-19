@@ -44,7 +44,6 @@ void DotsEditor::DotsEditor_Draw()
 
 	memory = GetMemoryUsage();
 
-
 	DotsEditor_ShowLeak();
 	ImGui::Unindent();
 	ImGui::Separator();
@@ -52,7 +51,7 @@ void DotsEditor::DotsEditor_Draw()
 
 	ImGui::Checkbox("Collision test", &CollisionCheck);
 
-	ImGui::InputInt("DotAmount", &scene->pendingDotCount, 10, 100);
+	ImGui::InputInt("DotAmount", &scene->pendingDotsCount, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotSpeed, 1.0f, 10.0f);
 	ImGui::SliderFloat("DotBounds", &scene->bounds, 10.0f, 200.0f);
 
@@ -73,6 +72,9 @@ void DotsEditor::DotsEditor_Draw()
 
 	if (ImGui::Button("Leaderboard mode"))
 		scene->DotsScene_LeaderBoardMode();
+
+	if (ImGui::Button("Stop simulation"))
+		scene->DotsScene_Stop();
 
 	ImGui::End();
 

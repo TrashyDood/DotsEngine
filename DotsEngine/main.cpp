@@ -47,7 +47,7 @@ bool setupImgui(GLFWwindow* window)
 	return true;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	glfwInit();
 
@@ -85,6 +85,18 @@ int main()
 	glfwSetWindowUserPointer(window, scene);
 	Input::Init(window);
 	glEnable(GL_DEPTH_TEST);
+
+	if (argc > 1)
+	{
+		scene->pendingDotsCount = std::atoi(argv[1]);
+		if (scene->pendingDotsCount <= 0)
+		{
+			std::cerr << "Invalid dot count argument, using default.\n";
+			scene->pendingDotsCount = 100000; // current default
+		}
+	}
+
+	scene->DotsScene_LeaderBoardMode(); // for profiling
 
 	while (!glfwWindowShouldClose(window))
 	{

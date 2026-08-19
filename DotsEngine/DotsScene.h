@@ -63,7 +63,7 @@ class DotsScene
 public:
 	static Camera* mainCamera;
 
-	int pendingDotCount = 200;
+	int pendingDotsCount = 200;
 	float bounds = 50.0f;
 	float dotSpeed = 5.0f;
 	bool isRunning = false;
@@ -72,6 +72,7 @@ public:
 	~DotsScene();
 
 	void DotsScene_Start();
+	void DotsScene_Stop();
 
 	void DotsScene_Render();
 	void DotsScene_Update();
