@@ -61,7 +61,7 @@ void DotsScene::DotsScene_Start()
 {
 	LOG("Dots simulation started!");
 
-	DotsScene_ClearDots();
+	DotsScene_DeleteDots();
 
 	dotsCount = pendingDotsCount;
 	dots = new Dot[dotsCount];
@@ -85,11 +85,13 @@ void DotsScene::DotsScene_Resume()
 
 void DotsScene::DotsScene_Render()
 {
-	//DotsScene_NaiveDotRender();
 	DotsScene_InstancedDotRender();
+	DotsScene_ClearInstanceBuffers();
+
 	DotsScene_DrawBounds();
 
-	//collisionTree2.DrawCell();
+	if (renderTree)
+		collisionTree2.DrawCell();
 }
 
 void DotsScene::DotsScene_Update()
@@ -107,7 +109,7 @@ void DotsScene::DotsScene_Update()
 
 	//DotsScene_HandleDotsCollisions();
 	//DotsScene_HandleDotsCollisions2();
-	DotsScene_HandleDotsCollisions2_Threaded();
+	DotsScene_HandleCollisions2_Threaded();
 
 	//Look for nan's
 	//for (size_t i = 0; i < dotsCount; i++)
@@ -126,7 +128,7 @@ void DotsScene::DotsScene_DrawBounds()
 Dot DotsScene::DotsScene_CreateDot(glm::vec3 aPosition, glm::vec3 aVelocity)
 {
 	Dot newDot;
-	newDot.SetHealth(3);
+	newDot.SetMesh(DotAssets::Meshes()[2]);
 	newDot.position = aPosition;
 	newDot.velocity = aVelocity;
 
@@ -150,7 +152,7 @@ void DotsScene::DotsScene_ReplaceDot(const Dot& dot, size_t index)
 	colliders[index] = &dots[index];
 }
 
-void DotsScene::DotsScene_ClearDots()
+void DotsScene::DotsScene_DeleteDots()
 {
 	delete[] dots;
 	delete[] colliders;
@@ -160,7 +162,7 @@ void DotsScene::DotsScene_ClearDots()
 	dotsCount = 0;
 }
 
-void DotsScene::DotsScene_HandleDotsCollisions()
+void DotsScene::DotsScene_HandleCollisions()
 {
 	{
 		ZoneScopedNC("Create Collision Tree", Colors::Collision);
@@ -184,10 +186,10 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 			uint32_t end = std::min(start + chunkSize, dotsCount);
 
 			threadResults[futureCount++] = threadPool.Submit([this, start, end, &nearbyPerDot]()
-				{
-					for (uint32_t dot1 = start; dot1 < end; dot1++)
-						collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
-				});
+			{
+				for (uint32_t dot1 = start; dot1 < end; dot1++)
+					collisionTree.Query(&dots[dot1], nearbyPerDot[dot1]);
+			});
 		}
 
 		for (uint32_t i = 0; i < futureCount; i++)
@@ -207,7 +209,7 @@ void DotsScene::DotsScene_HandleDotsCollisions()
 	}
 }
 
-void DotsScene::DotsScene_HandleDotsCollisions2()
+void DotsScene::DotsScene_HandleCollisions2()
 {
 	{
 		ZoneScopedNC("Create Collision Tree", Colors::Collision);
@@ -233,14 +235,14 @@ void DotsScene::DotsScene_HandleDotsCollisions2()
 	}
 }
 
-void DotsScene::DotsScene_HandleDotsCollisions2_Threaded()
+void DotsScene::DotsScene_HandleCollisions2_Threaded()
 {
 	{
 		ZoneScopedNC("Create Collision Tree", Colors::Collision);
 
 		//collisionTree2.BuildRoot(colliders, dotsCount, bounds, 15, DotAssets::Meshes()[2]->Radius());
 
-		collisionTree2.BuildRoot(colliders, dotsCount, bounds, 15, DotAssets::Meshes()[2]->Radius());
+		collisionTree2.BuildRoot(colliders, dotsCount, bounds, 15);
 		collisionTree2.BuildCell(0, 0);
 
 		int childIndices[8];
@@ -337,19 +339,21 @@ void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
 	dots[dot1].velocity = glm::reflect(dots[dot1].velocity, normal);
 	dots[dot2].velocity = glm::reflect(dots[dot2].velocity, -normal);
 
-	if (!dots[dot1].SetHealth(dots[dot1].Health - 1))
-		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), dot1);
-
-	if (!dots[dot2].SetHealth(dots[dot2].Health - 1))
-		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), dot2);
+	DotsScene_OnDotCollide(dots[dot1]);
+	DotsScene_OnDotCollide(dots[dot2]);
 }
 
-void DotsScene::DotsScene_NaiveDotRender()
+void DotsScene::DotsScene_OnDotCollide(int dot)
 {
-	ZoneScopedNC("Naive Rendering", Colors::Render);
+	dots[dot].health--;
+	if (dots[dot].health <= 0)
+	{
+		DotsScene_ReplaceDot(DotsScene_CreateRandomDot(), dot);
+		return;
+	}
 
-	for (size_t i = 0; i < dotsCount; i++)
-		dots[i].mesh->Mesh_RenderSingle(DotAssets::SphereShader(), dots[i].position);
+	dots[dot].SetMesh(DotAssets::Meshes()[dots[dot].health - 1]);
+	DotsScene_AddMeshInstance(dots[dot].health - 1, glm::translate(glm::mat4(1.0f), dots[dot].position));
 }
 
 void DotsScene::DotsScene_InstancedDotRender()
@@ -358,12 +362,12 @@ void DotsScene::DotsScene_InstancedDotRender()
 
 	using namespace DotAssets;
 
-	for (auto& instances : meshModelInstances)
+	for (auto& instances : meshInstances)
 		instances.clear();
 
 	// add a mesh instance for every dot
 	for (size_t i = 0; i < dotsCount; i++)
-		meshModelInstances[dots[i].Health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].position));
+		meshInstances[dots[i].health - 1].push_back(glm::translate(glm::mat4(1.0f), dots[i].position));
 
 	SphereShader()->Bind();
 	SphereShader()->SetUniformMat4("ViewProjection", mainCamera->GetViewProjection());
@@ -372,9 +376,19 @@ void DotsScene::DotsScene_InstancedDotRender()
 	// update mesh instances and then render them
 	for (size_t i = 0; i < meshCount; i++)
 	{
-		Meshes()[i]->Mesh_UpdateInstanceData(meshModelInstances[i]);
-		Meshes()[i]->Mesh_RenderInstanced(SphereShader(), meshModelInstances[i].size());
+		Meshes()[i]->Mesh_UpdateInstanceData(meshInstances[i]);
+		Meshes()[i]->Mesh_RenderInstanced(SphereShader(), meshInstances[i].size());
 	}
+}
+
+void DotsScene::DotsScene_ClearInstanceBuffers()
+{
+	
+}
+
+void DotsScene::DotsScene_AddMeshInstance(size_t meshIndex, const glm::mat4& transform)
+{
+
 }
 
 float DotsScene::RandomFloat(float min, float max)
@@ -389,18 +403,18 @@ DotsScene::~DotsScene()
 {
 	delete mainCamera;
 	delete flyingCamera;
+
 	delete DotAssets::SphereShader();
-
-	DotsScene_ClearDots();
-
 	for (auto& mesh : DotAssets::Meshes())
 		delete mesh;
+
+	DotsScene_DeleteDots();
 }
 
 void DotsScene::DotsScene_LeaderBoardMode()
 {
 	// TOUCH THIS AND YOU DO NOT QUALIFY FOR LEADERBOARD
-	DotsScene_ClearDots();
+	DotsScene_DeleteDots();
 	float spacing = 8.0f;
 	float volumePerEntity = spacing * spacing * spacing;
 	float totalVolume = pendingDotsCount * volumePerEntity;

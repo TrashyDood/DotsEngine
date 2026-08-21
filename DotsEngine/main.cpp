@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
 	}
 
 	scene->DotsScene_LeaderBoardMode(); // for profiling
+	glfwSwapInterval(0); // disable vsync for profiling
 
 	while (!glfwWindowShouldClose(window))
 	{

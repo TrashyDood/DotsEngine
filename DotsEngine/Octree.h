@@ -109,10 +109,9 @@ private:
 	std::atomic<int> cellCount = 1;
 
 	uint8_t splitThreshhold = 0;
+	float looseMargin = 0;
 
 	std::vector<Collider*> buildScratch;
-
-	float looseMargin = 1.1f;
 
 public:
 	void BuildRoot(Collider** colliders, uint32_t colliderCount, float rootHalfExtent,

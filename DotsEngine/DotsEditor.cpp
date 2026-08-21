@@ -59,13 +59,13 @@ void DotsEditor::DotsEditor_Draw()
 	{
 		if (CollisionCheck)
 		{
-			scene->DotsScene_ClearDots();
+			scene->DotsScene_DeleteDots();
 			scene->DotsScene_CreateDot(glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
 			scene->DotsScene_CreateDot(glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
 		}
 		else
 		{
-			scene->DotsScene_ClearDots();
+			scene->DotsScene_DeleteDots();
 			scene->DotsScene_Start();
 		}
 	}
