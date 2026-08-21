@@ -28,11 +28,12 @@ protected:
 class InstancedMesh : public Mesh
 {
 	unsigned int instanceVBO;
+	size_t instanceCapacity = 0;
 
 public:
 	const inline unsigned int GetInstanceVBO() const { return instanceVBO; }
 
-	void Mesh_UpdateInstanceData(const std::vector<glm::mat4>& models);
+	void Mesh_UpdateInstanceData(const glm::mat4* models, const size_t modelCount);
 	void Mesh_RenderInstanced(const Shader* aShader, const size_t instanceCount);
 
 protected:

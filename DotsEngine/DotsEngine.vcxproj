@@ -142,6 +142,7 @@
     <ClCompile Include="..\source\Input\FlyingCamera.cpp" />
     <ClCompile Include="..\source\Input\Input.cpp" />
     <ClCompile Include="..\source\Input\Time.cpp" />
+    <ClCompile Include="CollisionTree.cpp" />
     <ClCompile Include="DebugLine.cpp" />
     <ClCompile Include="DebugLines.cpp" />
     <ClCompile Include="DotsEditor.cpp" />
@@ -168,6 +169,7 @@
     <ClInclude Include="..\include\Input\FlyingCamera.h" />
     <ClInclude Include="..\include\Input\Input.h" />
     <ClInclude Include="..\include\Input\Time.h" />
+    <ClInclude Include="CollisionTree.h" />
     <ClInclude Include="DebugLine.h" />
     <ClInclude Include="DebugLines.h" />
     <ClInclude Include="DotsEditor.h" />

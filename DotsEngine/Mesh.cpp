@@ -62,23 +62,32 @@ void InstancedMesh::Mesh_Init()
 	glBindVertexArray(0);
 }
 
-void InstancedMesh::Mesh_UpdateInstanceData(const std::vector<glm::mat4>& models)
+void InstancedMesh::Mesh_UpdateInstanceData(const glm::mat4* models, const size_t modelCount)
 {
+	if (!modelCount) return;
+
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, models.size() * sizeof(glm::mat4), models.data(), GL_DYNAMIC_DRAW);
+
+	if (modelCount > instanceCapacity)
+	{
+		// grow (or first-time allocate) the store
+		glBufferData(GL_ARRAY_BUFFER, modelCount * sizeof(glm::mat4), models, GL_DYNAMIC_DRAW);
+		instanceCapacity = modelCount;
+	}
+	else
+	{
+		// reuse existing allocation, no reallocation
+		glBufferSubData(GL_ARRAY_BUFFER, 0, modelCount * sizeof(glm::mat4), models);
+	}
 }
 
-void InstancedMesh::Mesh_RenderInstanced(const Shader* aShader, const size_t instanceCount)
+void InstancedMesh::Mesh_RenderInstanced(const Shader* shader, const size_t instanceCount)
 {
 	if (!instanceCount) return;
 
-	aShader->Bind();
-	aShader->SetUniformVec3("Color", color);
+	shader->SetUniformVec3("Color", color);
 
 	glBindVertexArray(GetVAO());
 	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0, (GLsizei)instanceCount);
 	glBindVertexArray(0);
-
-	aShader->Unbind();
-
 }

@@ -50,6 +50,7 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::NewLine();
 
 	ImGui::Checkbox("Collision test", &CollisionCheck);
+	ImGui::Checkbox("Draw tree", &scene->drawTree);
 
 	ImGui::InputInt("DotAmount", &scene->pendingDotsCount, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotSpeed, 1.0f, 10.0f);
