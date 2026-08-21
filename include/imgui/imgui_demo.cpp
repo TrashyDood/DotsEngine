@@ -9482,7 +9482,7 @@ struct ExampleAppPropertyEditor
             ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F, ImGuiInputFlags_Tooltip);
             ImGui::PushItemFlag(ImGuiItemFlags_NoNavDefaultFocus, true);
             if (ImGui::InputTextWithHint("##Filter", "incl,-excl", Filter.InputBuf, IM_ARRAYSIZE(Filter.InputBuf), ImGuiInputTextFlags_EscapeClearsAll))
-                Filter.Build();
+                Filter.PopulateCells();
             ImGui::PopItemFlag();
 
             if (ImGui::BeginTable("##bg", 1, ImGuiTableFlags_RowBg))

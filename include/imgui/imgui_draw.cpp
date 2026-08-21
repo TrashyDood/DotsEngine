@@ -2987,7 +2987,7 @@ static void GetTexDataAsFormat(ImFontAtlas* atlas, ImTextureFormat format, unsig
     if (!atlas->TexIsBuilt || tex == NULL || tex->Pixels == NULL || atlas->TexDesiredFormat != format)
     {
         atlas->TexDesiredFormat = format;
-        atlas->Build();
+        atlas->PopulateCells();
         tex = atlas->TexData;
     }
     if (out_pixels) { *out_pixels = (unsigned char*)tex->Pixels; };
@@ -3006,7 +3006,7 @@ void ImFontAtlas::GetTexDataAsRGBA32(unsigned char** out_pixels, int* out_width,
     GetTexDataAsFormat(this, ImTextureFormat_RGBA32, out_pixels, out_width, out_height, out_bytes_per_pixel);
 }
 
-bool ImFontAtlas::Build()
+bool ImFontAtlas::PopulateCells()
 {
     ImFontAtlasBuildMain(this);
     return true;

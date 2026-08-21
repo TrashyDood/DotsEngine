@@ -29,7 +29,6 @@ namespace DotAssets
 struct Dot : public Collider
 {
 	Mesh_Sphere* mesh = nullptr;
-	glm::vec3 velocity{};
 	int Health = 0;
 
 	// returns true if dot is alive
@@ -52,13 +51,14 @@ class DotsScene
 	// stores dot instances for every different mesh
 	std::vector<glm::mat4> meshModelInstances[DotAssets::meshCount];
 
-	size_t dotsCount = 0;
+	uint32_t dotsCount = 0;
 	Dot* dots = nullptr;
 	Collider** colliders = nullptr;
 
 	FlyingCamera* flyingCamera = nullptr;
-	CollisionTree<6, 16> collisionTree = CollisionTree<6, 16>(8);
 	ThreadPool<32> threadPool;
+	CollisionTree<1, 1, 1> collisionTree;
+	CollisionTree2<5> collisionTree2;
 
 public:
 	static Camera* mainCamera;
@@ -66,13 +66,14 @@ public:
 	int pendingDotsCount = 200;
 	float bounds = 50.0f;
 	float dotSpeed = 5.0f;
-	bool isRunning = false;
+	bool isSimulating = false;
 
 	DotsScene();
 	~DotsScene();
 
 	void DotsScene_Start();
-	void DotsScene_Stop();
+	void DotsScene_Pause();
+	void DotsScene_Resume();
 
 	void DotsScene_Render();
 	void DotsScene_Update();
@@ -87,9 +88,10 @@ public:
 	void DotsScene_LeaderBoardMode();
 
 	void DotsScene_HandleDotsCollisions();
-	void DotsScene_QueryCollisions_Threaded(std::vector<std::vector<int>>& out);
-	void DotsScene_ResolveCollision(int dot1, int dot2);
+	void DotsScene_HandleDotsCollisions2();
+	void DotsScene_HandleDotsCollisions2_Threaded();
 	void DotsScene_HandleBoundsCollisions();
+	void DotsScene_ResolveCollision(int dot1, int dot2);
 
 	void DotsScene_NaiveDotRender();
 	void DotsScene_InstancedDotRender();

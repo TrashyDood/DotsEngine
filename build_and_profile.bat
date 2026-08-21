@@ -35,22 +35,33 @@ if errorlevel 1 (
 REM --- Set up traces archive folder ---
 if not exist "%~dp0traces" mkdir "%~dp0traces"
 
-REM --- Locale-independent European timestamp: DD-MM-YYYY_HHmm ---
-for /f %%t in ('powershell -NoProfile -Command "Get-Date -Format \"dd-MM-yyyy_HHmm\""') do set "TIMESTAMP=%%t"
-
-REM --- Auto-increment: find a free filename, appending _001, _002... on collision ---
-set "BASENAME=%OUTPUT%_%TIMESTAMP%"
-set "SUFFIX="
-set /a N=0
-:findfree
-if exist "%~dp0traces\%BASENAME%%SUFFIX%.tracy" (
-    set /a N+=1
-    set "SUFFIX=_!N!"
-    if !N! lss 10 set "SUFFIX=_00!N!"
-    if !N! geq 10 if !N! lss 100 set "SUFFIX=_0!N!"
-    goto findfree
+REM --- Git short commit hash, with -dirty suffix if there are uncommitted changes ---
+set "GITHASH="
+where git >nul 2>&1
+if not errorlevel 1 (
+    for /f %%h in ('git rev-parse --short HEAD 2^>nul') do set "GITHASH=%%h"
+    if defined GITHASH (
+        git diff --quiet 2>nul
+        if errorlevel 1 set "GITHASH=!GITHASH!-dirty"
+        git diff --cached --quiet 2>nul
+        if errorlevel 1 set "GITHASH=!GITHASH!-dirty"
+    )
 )
-set "BASENAME=%BASENAME%%SUFFIX%"
+set "HASHTAG="
+if defined GITHASH set "HASHTAG=_!GITHASH!"
+
+REM --- Auto-increment: count existing traces with this base name (ignoring timestamp/hash) ---
+set /a N=0
+for %%f in ("%~dp0traces\%OUTPUT%_*.tracy") do (
+    set /a N+=1
+)
+set /a N+=1
+
+set "COUNTER=%N%"
+if %N% lss 100 set "COUNTER=0%N%"
+if %N% lss 10 set "COUNTER=00%N%"
+
+set "BASENAME=%OUTPUT%_%COUNTER%%HASHTAG%"
 
 set "LOGFILE=%~dp0traces\%BASENAME%_build.log"
 

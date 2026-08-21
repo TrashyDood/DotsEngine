@@ -3490,7 +3490,7 @@ elf_zstd_read_huff (const unsigned char **ppin, const unsigned char *pinend,
 
       struct elf_zstd_fse_entry *fse_table;
       int fse_table_bits;
-      uint16_t *scratch;
+      uint16_t *buildScratch;
       const unsigned char *pfse;
       const unsigned char *pback;
       uint64_t val;
@@ -3499,12 +3499,12 @@ elf_zstd_read_huff (const unsigned char **ppin, const unsigned char *pinend,
 
       /* SCRATCH is used temporarily by elf_zstd_read_fse.  It overlaps
 	 WEIGHTS.  */
-      scratch = zdebug_table;
-      fse_table = (struct elf_zstd_fse_entry *) (scratch + 512);
+      buildScratch = zdebug_table;
+      fse_table = (struct elf_zstd_fse_entry *) (buildScratch + 512);
       fse_table_bits = 6;
 
       pfse = pin;
-      if (!elf_zstd_read_fse (&pfse, pinend, scratch, 255, fse_table,
+      if (!elf_zstd_read_fse (&pfse, pinend, buildScratch, 255, fse_table,
 			      &fse_table_bits))
 	return 0;
 
@@ -3756,7 +3756,7 @@ elf_zstd_read_literals (const unsigned char **ppin,
 			const unsigned char *pinend,
 			unsigned char *pout,
 			unsigned char *poutend,
-			uint16_t *scratch,
+			uint16_t *buildScratch,
 			uint16_t *huffman_table,
 			int *phuffman_table_bits,
 			unsigned char **pplit)
@@ -3929,7 +3929,7 @@ elf_zstd_read_literals (const unsigned char **ppin,
       /* Compressed_Literals_Block.  Read Huffman tree.  */
 
       ptable = pin;
-      if (!elf_zstd_read_huff (&ptable, pinend, scratch, huffman_table,
+      if (!elf_zstd_read_huff (&ptable, pinend, buildScratch, huffman_table,
 			       phuffman_table_bits))
 	return 0;
 
@@ -4288,7 +4288,7 @@ elf_zstd_unpack_seq_decode (int mode,
 			    const unsigned char *pinend,
 			    const struct elf_zstd_fse_baseline_entry *predef,
 			    int predef_bits,
-			    uint16_t *scratch,
+			    uint16_t *buildScratch,
 			    int maxidx,
 			    struct elf_zstd_fse_baseline_entry *table,
 			    int table_bits,
@@ -4332,7 +4332,7 @@ elf_zstd_unpack_seq_decode (int mode,
 	   table.  */
 	fse_table = (struct elf_zstd_fse_entry *)table;
 	decode->table_bits = table_bits;
-	if (!elf_zstd_read_fse (ppin, pinend, scratch, maxidx, fse_table,
+	if (!elf_zstd_read_fse (ppin, pinend, buildScratch, maxidx, fse_table,
 				&decode->table_bits))
 	  return 0;
 	if (!conv (fse_table, decode->table_bits, table))
@@ -4381,7 +4381,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
   uint32_t repeated_offset1;
   uint32_t repeated_offset2;
   uint32_t repeated_offset3;
-  uint16_t *scratch;
+  uint16_t *buildScratch;
   unsigned char hdr;
   int single_segment;
   int has_checksum;
@@ -4409,7 +4409,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
   huffman_table = ((uint16_t *)
 		   (zdebug_table + ZSTD_TABLE_HUFFMAN_OFFSET));
   huffman_table_bits = 0;
-  scratch = ((uint16_t *)
+  buildScratch = ((uint16_t *)
 	     (zdebug_table + ZSTD_TABLE_WORK_OFFSET));
 
   repeated_offset1 = 1;
@@ -4623,7 +4623,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
 	       PLIT pointing at them.  */
 
 	    if (!elf_zstd_read_literals (&pin, pblockend, pout, poutend,
-					 scratch, huffman_table,
+					 buildScratch, huffman_table,
 					 &huffman_table_bits,
 					 &plitstack))
 	      return 0;
@@ -4677,7 +4677,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
 		if (!elf_zstd_unpack_seq_decode ((seq_hdr >> 6) & 3,
 						 &pin, pinend,
 						 &elf_zstd_lit_table[0], 6,
-						 scratch, 35,
+						 buildScratch, 35,
 						 literal_fse_table, 9, pfn,
 						 &literal_decode))
 		  return 0;
@@ -4686,7 +4686,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
 		if (!elf_zstd_unpack_seq_decode ((seq_hdr >> 4) & 3,
 						 &pin, pinend,
 						 &elf_zstd_offset_table[0], 5,
-						 scratch, 31,
+						 buildScratch, 31,
 						 offset_fse_table, 8, pfn,
 						 &offset_decode))
 		  return 0;
@@ -4695,7 +4695,7 @@ elf_zstd_decompress_frame (const unsigned char **ppin,
 		if (!elf_zstd_unpack_seq_decode ((seq_hdr >> 2) & 3,
 						 &pin, pinend,
 						 &elf_zstd_match_table[0], 6,
-						 scratch, 52,
+						 buildScratch, 52,
 						 match_fse_table, 9, pfn,
 						 &match_decode))
 		  return 0;

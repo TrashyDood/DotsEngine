@@ -2991,7 +2991,7 @@ ImGuiTextFilter::ImGuiTextFilter(const char* default_filter) //-V1077
     if (default_filter)
     {
         ImStrncpy(InputBuf, default_filter, IM_ARRAYSIZE(InputBuf));
-        Build();
+        PopulateCells();
     }
 }
 
@@ -3001,7 +3001,7 @@ bool ImGuiTextFilter::Draw(const char* label, float width)
         ImGui::SetNextItemWidth(width);
     bool value_changed = ImGui::InputText(label, InputBuf, IM_ARRAYSIZE(InputBuf));
     if (value_changed)
-        Build();
+        PopulateCells();
     return value_changed;
 }
 
@@ -3023,7 +3023,7 @@ void ImGuiTextFilter::ImGuiTextRange::split(char separator, ImVector<ImGuiTextRa
         out->push_back(ImGuiTextRange(wb, we));
 }
 
-void ImGuiTextFilter::Build()
+void ImGuiTextFilter::PopulateCells()
 {
     Filters.resize(0);
     ImGuiTextRange input_range(InputBuf, InputBuf + ImStrlen(InputBuf));

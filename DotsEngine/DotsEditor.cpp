@@ -73,8 +73,11 @@ void DotsEditor::DotsEditor_Draw()
 	if (ImGui::Button("Leaderboard mode"))
 		scene->DotsScene_LeaderBoardMode();
 
-	if (ImGui::Button("Stop simulation"))
-		scene->DotsScene_Stop();
+	if (scene->isSimulating && ImGui::Button("Pause simulation"))
+		scene->DotsScene_Pause();
+	
+	if (!scene->isSimulating && ImGui::Button("Resume simulation"))
+		scene->DotsScene_Resume();
 
 	ImGui::End();
 
