@@ -18,7 +18,7 @@ FlyingCamera::FlyingCamera(Camera* camera) : m_Camera(camera)
 
 void FlyingCamera::Update()
 {
-    float dt = Time::deltaTime;
+    float dt = Time::main_DeltaTime;
 
     if (!m_Camera) return;
 

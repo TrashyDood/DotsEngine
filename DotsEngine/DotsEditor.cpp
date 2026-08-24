@@ -10,9 +10,10 @@
 const float Leak_Check = 0.25f;
 const int Leak_QueueMax = 25;
 float Leak_Current = 0;
-int Leak_Streak = 0;
-int Leak_StreakCheck = 20;
-std::queue<size_t> Leak_Queue;
+int Leak_Streak = 0,
+Leak_StreakCheck = 20;
+int pendingDotsCount = 0;
+std::queue<size_t> Leak_Queue{};
 size_t Leak_Threshold = 1024 * 1024;
 size_t Leak_RecordHigh = 0;
 size_t memory = 0;
@@ -28,6 +29,7 @@ DotsEditor::DotsEditor(DotsScene* aScene)
 {
 	lines = new DebugLines();
 	scene = aScene;
+	pendingDotsCount = scene->dotsCount;
 }
 
 void DotsEditor::DotsEditor_Draw()
@@ -39,8 +41,9 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Indent(15);
 	ImGui::Text("Performance");
 
-	std::string fpsCounter = "FPS - " + std::to_string(Time::fps);
-	ImGui::Text(fpsCounter.c_str());
+	ImGui::Text(("Render FPS - " + std::to_string(Time::main_FPS)).c_str());
+	if (scene->threadedSimulation)
+		ImGui::Text(("Simulation FPS - " + std::to_string(Time::sim_FPS)).c_str());
 
 	memory = GetMemoryUsage();
 
@@ -52,7 +55,7 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Checkbox("Collision test", &CollisionCheck);
 	ImGui::Checkbox("Draw tree", &scene->drawTree);
 
-	ImGui::InputInt("DotAmount", &scene->pendingDotsCount, 10, 100);
+	ImGui::InputInt("DotAmount", &pendingDotsCount, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotSpeed, 1.0f, 10.0f);
 	ImGui::SliderFloat("DotBounds", &scene->bounds, 10.0f, 200.0f);
 
@@ -60,25 +63,16 @@ void DotsEditor::DotsEditor_Draw()
 	{
 		if (CollisionCheck)
 		{
-			scene->DotsScene_DeleteDots();
-			scene->DotsScene_CreateDot(glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
-			scene->DotsScene_CreateDot(glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
+			scene->DotsScene_Start(true, 2);
+			scene->DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
+			scene->DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
 		}
 		else
-		{
-			scene->DotsScene_DeleteDots();
-			scene->DotsScene_Start();
-		}
+			scene->DotsScene_Start(true, pendingDotsCount);
 	}
 
 	if (ImGui::Button("Leaderboard mode"))
-		scene->DotsScene_LeaderBoardMode();
-
-	if (scene->isSimulating && ImGui::Button("Pause simulation"))
-		scene->DotsScene_Pause();
-	
-	if (!scene->isSimulating && ImGui::Button("Resume simulation"))
-		scene->DotsScene_Resume();
+		scene->DotsScene_LeaderBoardMode(true, pendingDotsCount);
 
 	ImGui::End();
 
@@ -91,7 +85,7 @@ void DotsEditor::DotsEditor_CheckLeak()
 {
 	//ask oscar if he has a better idea cuz this is nutz
 
-	Leak_Current += Time::deltaTime;
+	Leak_Current += Time::main_DeltaTime;
 
 	if (Leak_Current >= Leak_Check)
 	{
@@ -121,7 +115,7 @@ void DotsEditor::DotsEditor_CheckLeak()
 
 void DotsEditor::DotsEditor_ShowLeak()
 {
-	float pulse = (sinf(Time::totalTime * 15.0f) + 1.0f) * 0.5f;
+	float pulse = (sinf(Time::main_TotalTime * 15.0f) + 1.0f) * 0.5f;
 
 	ImVec4 color = ImVec4(pulse, 0.0f, 0.0f, 1.0f);
 

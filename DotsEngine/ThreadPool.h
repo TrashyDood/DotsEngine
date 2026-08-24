@@ -60,6 +60,34 @@ public:
 		return result;
 	}
 	
+	template<int ParallelForThreadCount, typename Func>
+	void ParallelFor(size_t count, Func&& func)
+	{
+		size_t chunkSize = (count + ParallelForThreadCount - 1) / ParallelForThreadCount;
+		std::future<void> threadResults[ParallelForThreadCount];
+		int usedThreads = 0;
+
+		for (int thread = 0; thread < ParallelForThreadCount; thread++)
+		{
+			uint32_t chunkStart = thread * chunkSize;
+			if (chunkStart >= count)
+				break;
+
+			uint32_t chunkEnd = std::min(chunkStart + chunkSize, count);
+
+			threadResults[thread] = Submit([chunkStart, chunkEnd, thread, &func]()
+			{
+				for (uint32_t index = chunkStart; index < chunkEnd; index++)
+					func(thread, index);
+			});
+
+			usedThreads++;
+		}
+
+		for (int thread = 0; thread < usedThreads; thread++)
+			threadResults[thread].get();
+	}
+
 private:
 	void WorkerLoop()
 	{
@@ -81,3 +109,9 @@ private:
 		}
 	}
 };
+
+inline ThreadPool<32>& GlobalThreadPool()
+{
+	static ThreadPool<32> threadPoolInstance;
+	return threadPoolInstance;
+}

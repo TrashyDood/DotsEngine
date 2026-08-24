@@ -3,22 +3,28 @@
 class Time
 {
 public:
-    static float deltaTime;
-    static float lastFrameTime;
-    static float totalTime;
+    static float main_DeltaTime, main_LastFrameTime, main_TotalTime, main_FPS;
+    static float sim_DeltaTime, sim_LastFrameTime, sim_TotalTime, sim_FPS;
 
-    static float fps;
-
-    static void Update(float currentTime)
+    static void UpdateMain(float currentTime)
     {
-        deltaTime = currentTime - lastFrameTime;
-        lastFrameTime = currentTime;
+        main_DeltaTime = currentTime - main_LastFrameTime;
+        main_LastFrameTime = currentTime;
 
-        totalTime += deltaTime;
+        main_TotalTime += main_DeltaTime;
 
-        if (deltaTime > 0.0f) 
-        {
-            fps = 1.0f / deltaTime;
-        }
+        if (main_DeltaTime > 0.0f) 
+            main_FPS = 1.0f / main_DeltaTime;
+    }
+
+    static void UpdateSimulation(float currentTime)
+    {
+        sim_DeltaTime = currentTime - sim_LastFrameTime;
+        sim_LastFrameTime = currentTime;
+
+        sim_TotalTime += sim_DeltaTime;
+
+        if (sim_DeltaTime > 0.0f)
+            sim_FPS = 1.0f / sim_DeltaTime;
     }
 };

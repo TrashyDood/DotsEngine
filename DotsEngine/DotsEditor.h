@@ -10,9 +10,7 @@ public:
 	~DotsEditor();
 
 	void DotsEditor_Draw();
-
 	void DotsEditor_CheckLeak();
-
 	void DotsEditor_ShowLeak();
 
 private:

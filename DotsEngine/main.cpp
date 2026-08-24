@@ -1,4 +1,5 @@
 #include <iostream>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -14,8 +15,6 @@
 #include "DotsScene.h"
 
 #include "tracy/Tracy.hpp"
-
-#include "ThreadPool.h"
 
 const char* glsl_version = "#version 330 core"; // please don't break my heart, my achey breaky heart
 
@@ -81,23 +80,25 @@ int main(int argc, char* argv[])
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	DotsScene* scene = new DotsScene();
-	DotsEditor* editor = new DotsEditor(scene);
 	glfwSetWindowUserPointer(window, scene);
 	Input::Init(window);
 	glEnable(GL_DEPTH_TEST);
 
+	uint32_t pendingDotsCount = 200;
 	if (argc > 1)
 	{
-		scene->pendingDotsCount = std::atoi(argv[1]);
-		if (scene->pendingDotsCount <= 0)
+		pendingDotsCount = std::atoi(argv[1]);
+		if (pendingDotsCount <= 0)
 		{
 			std::cerr << "Invalid dot count argument, using default.\n";
-			scene->pendingDotsCount = 100000; // current default
+			pendingDotsCount = DotsScene::defaultDotsCount; // current default
 		}
 	}
 
-	scene->DotsScene_LeaderBoardMode(); // for profiling
-	glfwSwapInterval(0); // disable vsync for profiling
+	scene->DotsScene_LeaderBoardMode(true, pendingDotsCount); // for profiling
+	//glfwSwapInterval(0); // disable vsync for profiling
+
+	DotsEditor* editor = new DotsEditor(scene);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -110,7 +111,7 @@ int main(int argc, char* argv[])
 		}
 
 		float currentTime = (float)glfwGetTime();
-		Time::Update(currentTime);
+		Time::UpdateMain(currentTime);
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -122,9 +123,12 @@ int main(int argc, char* argv[])
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//
+		if (!scene->threadedSimulation)
+			scene->DotsScene_Simulate(Time::main_DeltaTime);
+
+		scene->DotsScene_Render(scene->renderContext);
+		scene->flyingCamera->Update();
 		editor->DotsEditor_Draw();
-		scene->DotsScene_Update();
-		scene->DotsScene_Render();
 		//
 
 		ImGui::Render();
@@ -134,7 +138,7 @@ int main(int argc, char* argv[])
 
 		Input::Update();
 
-		FrameMark;
+		FrameMarkNamed("Main");
 	}
 
 	delete editor;
@@ -147,4 +151,3 @@ int main(int argc, char* argv[])
 	glfwTerminate();
 	return 0;
 }
-

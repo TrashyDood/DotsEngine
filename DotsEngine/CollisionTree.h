@@ -44,6 +44,8 @@ public:
 				((position.y > center.y) << 1) |
 				((position.z > center.z) << 2);
 		}
+
+		bool HasChildIndex(uint32_t index) { return childMask & (1 << index); }
 	};
 
 	static constexpr int CellPoolSize()
@@ -77,20 +79,15 @@ private:
 	uint8_t splitThreshhold = 0;
 	float looseMargin = 0;
 
-	std::vector<int> buildScratch;
-
 public:
-	void BuildRoot(const glm::vec3* positionsIn, const float* radiiIn, uint32_t colliderCountIn,
-		float rootHalfExtent, size_t splitThreshholdIn, float looseMarginIn = 0, glm::vec3 rootCenter = glm::vec3())
+	void BuildRoot(const glm::vec3* positions, const float* radii, uint32_t colliderCount,
+		float rootHalfExtent, uint8_t splitThreshhold, glm::vec3 rootCenter = glm::vec3())
 	{
-		positions = positionsIn;
-		radii = radiiIn;
-		colliderCount = (int)colliderCountIn;
-		splitThreshhold = (uint8_t)splitThreshholdIn;
-		looseMargin = looseMarginIn;
+		CollisionTreeSOA::positions = positions;
+		CollisionTreeSOA::radii = radii;
+		CollisionTreeSOA::colliderCount = (int)colliderCount;
+		CollisionTreeSOA::splitThreshhold = splitThreshhold;
 
-		// only (re)build identity mapping when the count actually changes,
-		// not every frame — BuildCell doesn't care about starting order.
 		if ((int)indexPool.size() != colliderCount)
 		{
 			indexPool.resize(colliderCount);
@@ -98,16 +95,91 @@ public:
 				indexPool[i] = i;
 		}
 
-		cellCount = 1; // index 0 is the root, already occupied
+		cellCount = 1; // reserve index 0
 		cellPool[0] = Cell{
 			rootCenter,
 			rootHalfExtent,
 			0,
 			(int)colliderCount
 		};
+
+		BuildCell(0, 0);
 	}
 
-	void QueryCell(std::vector<std::pair<int, int>>& out, int cellIndex = 0)
+	void BuildCell(int cellIndex, uint8_t depth)
+	{
+		Cell& cell = cellPool[cellIndex];
+
+		if (depth >= MaxDepth || cell.colliderCount < splitThreshhold)
+			return;
+
+		int start = cell.colliderStart;
+		int count = cell.colliderCount;
+		int* begin = indexPool.data() + start;
+
+		auto xMid = std::partition(begin, begin + count,
+			[&](int idx) { return positions[idx].x <= cell.center.x; });
+
+		auto yMid1 = std::partition(begin, xMid,
+			[&](int idx) { return positions[idx].y <= cell.center.y; });
+		auto yMid2 = std::partition(xMid, begin + count,
+			[&](int idx) { return positions[idx].y <= cell.center.y; });
+
+		auto zMid1 = std::partition(begin, yMid1,
+			[&](int idx) { return positions[idx].z <= cell.center.z; });
+		auto zMid2 = std::partition(yMid1, xMid,
+			[&](int idx) { return positions[idx].z <= cell.center.z; });
+		auto zMid3 = std::partition(xMid, yMid2,
+			[&](int idx) { return positions[idx].z <= cell.center.z; });
+		auto zMid4 = std::partition(yMid2, begin + count,
+			[&](int idx) { return positions[idx].z <= cell.center.z; });
+
+		// map each partition segment to its correct slot (x=bit0, y=bit1, z=bit2)
+		int* rangeBegin[8];
+		int* rangeEnd[8];
+		rangeBegin[0] = begin;    rangeEnd[0] = zMid1;   // x=0,y=0,z=0
+		rangeBegin[4] = zMid1;    rangeEnd[4] = yMid1;   // x=0,y=0,z=1
+		rangeBegin[2] = yMid1;    rangeEnd[2] = zMid2;   // x=0,y=1,z=0
+		rangeBegin[6] = zMid2;    rangeEnd[6] = xMid;    // x=0,y=1,z=1
+		rangeBegin[1] = xMid;     rangeEnd[1] = zMid3;   // x=1,y=0,z=0
+		rangeBegin[5] = zMid3;    rangeEnd[5] = yMid2;   // x=1,y=0,z=1
+		rangeBegin[3] = yMid2;    rangeEnd[3] = zMid4;   // x=1,y=1,z=0
+		rangeBegin[7] = zMid4;    rangeEnd[7] = begin + count; // x=1,y=1,z=1
+
+		int firstChild = cellCount.fetch_add(8);
+		float childExtent = cell.halfExtent * 0.5f;
+
+		for (int i = 0; i < 8; i++)
+		{
+			int cnt = (int)(rangeEnd[i] - rangeBegin[i]);
+			int startOffset = (int)(rangeBegin[i] - indexPool.data());
+
+			glm::vec3 offset{
+				(i & 1) ? childExtent : -childExtent,
+				(i & 2) ? childExtent : -childExtent,
+				(i & 4) ? childExtent : -childExtent
+			};
+
+			cellPool[firstChild + i] = Cell{
+				cell.center + offset,
+				childExtent + looseMargin,
+				startOffset,
+				cnt
+			};
+
+			if (cnt > 0)
+				cell.childMask |= (1 << i);
+		}
+
+		cell.childStart = firstChild;
+		cell.colliderCount = 0;
+
+		for (int i = 0; i < 8; i++)
+			if (cellPool[firstChild + i].colliderCount > 0)
+				BuildCell(firstChild + i, depth + 1);
+	}
+
+	void QueryCell(std::vector<std::pair<int, int>>& out, int cellIndex = 0, float looseMargin = 0)
 	{
 		Cell& cell = cellPool[cellIndex];
 
@@ -128,7 +200,7 @@ public:
 
 		for (int i = 0; i < 8; i++) // cross test with overlapping cells
 		{
-			if (!(cell.childMask & (1 << i))) continue;
+			if (!(cell.childMask & (1 << i))) continue; // if this child cell isn present
 			for (int j = i + 1; j < 8; j++)
 			{
 				if (!(cell.childMask & (1 << j))) continue;
@@ -160,81 +232,6 @@ public:
 				DrawCell(cell.childStart + i);
 	}
 
-	void BuildCell(int cellIndex, uint8_t depth)
-	{
-		Cell& cell = cellPool[cellIndex];
-
-		if (depth >= MaxDepth || cell.colliderCount < splitThreshhold)
-			return;
-
-		int start = cell.colliderStart;
-		int count = cell.colliderCount;
-
-		int counts[8] = {};
-		for (int i = 0; i < count; i++)
-		{
-			int idx = indexPool[start + i];
-			int slot = (positions[idx].x > cell.center.x) |
-				((positions[idx].y > cell.center.y) << 1) |
-				((positions[idx].z > cell.center.z) << 2);
-			counts[slot]++;
-		}
-
-		int offsets[9] = { 0 };
-		for (int i = 0; i < 8; i++)
-			offsets[i + 1] = offsets[i] + counts[i];
-
-		buildScratch.resize(count);
-
-		int cursor[8];
-		for (int i = 0; i < 8; i++)
-			cursor[i] = offsets[i];
-
-		for (int i = 0; i < count; i++)
-		{
-			int idx = indexPool[start + i];
-			int slot = (positions[idx].x > cell.center.x) |
-				((positions[idx].y > cell.center.y) << 1) |
-				((positions[idx].z > cell.center.z) << 2);
-
-			buildScratch[cursor[slot]] = idx;
-			cursor[slot]++;
-		}
-
-		for (int i = 0; i < count; i++)
-			indexPool[start + i] = buildScratch[i];
-
-		int firstChild = cellCount.fetch_add(8);
-
-		float childExtent = cell.halfExtent * 0.5f;
-
-		for (int i = 0; i < 8; i++)
-		{
-			glm::vec3 offset{
-				(i & 1) ? childExtent : -childExtent,
-				(i & 2) ? childExtent : -childExtent,
-				(i & 4) ? childExtent : -childExtent
-			};
-
-			cellPool[firstChild + i] = Cell{
-				cell.center + offset,
-				childExtent + looseMargin,
-				start + offsets[i],
-				counts[i]
-			};
-
-			if (counts[i] > 0)
-				cell.childMask |= (1 << i);
-		}
-
-		cell.childStart = firstChild;
-		cell.colliderCount = 0;
-
-		for (int i = 0; i < 8; i++)
-			if (counts[i] > 0)
-				BuildCell(firstChild + i, depth + 1);
-	}
-
 	// test overlapping cells with loose boundaries
 	void CrossTest(int cellIndexA, int cellIndexB, std::vector<std::pair<int, int>>& out)
 	{
@@ -257,13 +254,16 @@ public:
 		}
 
 		if (!aLeaf)
+		{
 			for (int i = 0; i < 8; i++)
 				if (a.childMask & (1 << i))
 					CrossTest(a.childStart + i, cellIndexB, out);
-				else
-					for (int i = 0; i < 8; i++)
-						if (b.childMask & (1 << i))
-							CrossTest(cellIndexA, b.childStart + i, out);
+			return;
+		}
+
+		for (int j = 0; j < 8; j++)
+			if (b.childMask & (1 << j))
+				CrossTest(cellIndexA, b.childStart + j, out);
 	}
 };
 
