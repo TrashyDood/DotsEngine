@@ -2,7 +2,6 @@
 #include <Time/Time.h>
 #include <GLFW/glfw3.h>
 #include <Input/Input.h>
-#include <iostream>
 
 FlyingCamera::FlyingCamera(Camera* camera) : m_Camera(camera)
 {

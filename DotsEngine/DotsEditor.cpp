@@ -63,16 +63,16 @@ void DotsEditor::DotsEditor_Draw()
 	{
 		if (CollisionCheck)
 		{
-			scene->DotsScene_Start(true, 2);
+			scene->DotsScene_Start(2);
 			scene->DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
 			scene->DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
 		}
 		else
-			scene->DotsScene_Start(true, pendingDotsCount);
+			scene->DotsScene_Start(pendingDotsCount);
 	}
 
 	if (ImGui::Button("Leaderboard mode"))
-		scene->DotsScene_LeaderBoardMode(true, pendingDotsCount);
+		scene->DotsScene_LeaderBoardMode(pendingDotsCount);
 
 	ImGui::End();
 

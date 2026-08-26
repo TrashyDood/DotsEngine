@@ -6,7 +6,7 @@ class Shader;
 
 class Mesh
 {
-	unsigned int VAO, VBO, EBO; // IDs for buffer data stored in GPU memory
+	unsigned int VAO, VBO, EBO; // handles for buffer data stored in GPU memory
 
 protected:
 	std::vector<float> vertices;

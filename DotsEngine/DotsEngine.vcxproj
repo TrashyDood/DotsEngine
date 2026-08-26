@@ -122,6 +122,7 @@
       <AdditionalIncludeDirectories>$(Solutiondir)include\;$(Solutiondir)include\GLFW\;$(Solutiondir)include\tracy\public\</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>glad/glad.h</ForcedIncludeFiles>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

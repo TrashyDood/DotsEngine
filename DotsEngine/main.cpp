@@ -2,7 +2,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 
 #include <Time/Time.h>
 #include <Input/Input.h>
@@ -84,18 +83,14 @@ int main(int argc, char* argv[])
 	Input::Init(window);
 	glEnable(GL_DEPTH_TEST);
 
-	uint32_t pendingDotsCount = 200;
-	if (argc > 1)
+	uint32_t pendingDotsCount = DotsScene::defaultDotsCount;
+	if (argc > 1 && (pendingDotsCount = std::atoi(argv[1])) > 0)
 	{
-		pendingDotsCount = std::atoi(argv[1]);
-		if (pendingDotsCount <= 0)
-		{
-			std::cerr << "Invalid dot count argument, using default.\n";
-			pendingDotsCount = DotsScene::defaultDotsCount; // current default
-		}
+		std::cerr << "Invalid dot count argument, using default.\n";
+		pendingDotsCount = DotsScene::defaultDotsCount;
 	}
 
-	scene->DotsScene_LeaderBoardMode(true, pendingDotsCount); // for profiling
+	scene->DotsScene_LeaderBoardMode(pendingDotsCount); // for profiling
 	//glfwSwapInterval(0); // disable vsync for profiling
 
 	DotsEditor* editor = new DotsEditor(scene);

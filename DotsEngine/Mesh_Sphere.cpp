@@ -2,18 +2,21 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
-Mesh_Sphere::Mesh_Sphere(float aRadius, glm::vec3 aColor)
+Mesh_Sphere::Mesh_Sphere(float aRadius, glm::vec3 aColor, float detailLevel)
 {
 	radius = aRadius;
 	color = aColor;
+	Mesh_Sphere::tessellation = detailLevel;
 
 	Mesh_Init();
 }
 
 void Mesh_Sphere::Mesh_ConstructMesh()
 {
-	int stacks = 36;
-	int sectors = 18;
+	const static int minSegments = 4, maxSegments = 16;
+
+	int stacks = glm::clamp((int)(radius * tessellation), minSegments, maxSegments);
+	int sectors = glm::clamp((int)(radius * tessellation), minSegments, maxSegments);
 
 	for (int i = 0; i <= stacks; ++i)
 	{
