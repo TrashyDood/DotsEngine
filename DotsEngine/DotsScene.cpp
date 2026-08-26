@@ -13,6 +13,8 @@
 
 #define LOG(x) std::cout << x << std::endl;
 
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char* lpOutputString); // debug
+
 namespace Colors
 {
 	constexpr uint32_t Red = 0xFF0000;
@@ -134,6 +136,13 @@ void DotsScene::DotsScene_Simulate(float deltaTime)
 
 	DotsScene_BuildCollisionTree_Async(); // starts building this frame's tree asynchronously
 	DotsScene_HandleCollisions();
+
+	static bool dumped = false;
+	if (!dumped)
+	{
+		DotsScene_DebugDumpLeafSizes(readTree);
+		dumped = true;
+	}
 
 	DotsScene_UpdateTransformBuffers(); // updates transform buffers for rendering
 }
@@ -402,6 +411,33 @@ float DotsScene::RandomFloat(float min, float max) const
 	static std::mt19937 gen(rd());
 	std::uniform_real_distribution<float> dist(min, max);
 	return dist(gen);
+}
+
+void DotsScene::DotsScene_DebugDumpLeafSizes(CollisionTreeSOA<6>* tree)
+{
+	OutputDebugStringA("dump called\n");
+
+	std::function<void(int, int)> walk = [&](int cellIndex, int depth)
+		{
+			auto& cell = tree->cellPool[cellIndex];
+
+			if (cell.childStart == -1) // leaf
+			{
+				if (cell.colliderCount > 0)
+				{
+					std::string msg = "leaf depth=" + std::to_string(depth) +
+						" count=" + std::to_string(cell.colliderCount) + "\n";
+					OutputDebugStringA(msg.c_str());
+				}
+				return;
+			}
+
+			for (int i = 0; i < 8; i++)
+				if (cell.childMask & (1 << i))
+					walk(cell.childStart + i, depth + 1);
+		};
+
+	walk(0, 0);
 }
 
 void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount, bool threadedSimulation)

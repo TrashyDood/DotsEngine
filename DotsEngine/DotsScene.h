@@ -118,4 +118,6 @@ public:
 	void DotsScene_RenderMeshBuffers(RenderContext& context) const;
 
 	float RandomFloat(float min, float max) const;
+
+	void DotsScene_DebugDumpLeafSizes(CollisionTreeSOA<6>* tree);
 };

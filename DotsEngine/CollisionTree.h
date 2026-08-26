@@ -66,7 +66,7 @@ public:
 
 	static constexpr uint8_t maxDepth = MaxDepth;
 
-private:
+//private:
 	const glm::vec3* positions = nullptr;
 	const float* radii = nullptr;
 	int colliderCount = 0;
