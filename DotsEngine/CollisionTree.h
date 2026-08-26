@@ -355,3 +355,221 @@ private:
 				CrossTest(cellIndexA, b.childStart + j, out);
 	}
 };
+
+template<uint8_t MaxDepth>
+class CollisionTree
+{
+public:
+	struct Cell
+	{
+		glm::vec3 center{};
+		float halfExtent = 0;
+
+		int colliderStart = -1;
+		int colliderCount = 0;
+		int totalColliderCount = 0;
+
+		int childStart = -1;   // index of first child, in DFS order, after compaction
+		uint8_t childMask = 0;
+		int skipCount = 1;     // number of array slots this cell's subtree occupies (itself included)
+
+		bool IsLeaf() const { return childStart == -1; }
+	};
+
+	void Build(const glm::vec3* positions, const float* radii, int colliderCount,
+		float rootHalfExtent, uint8_t splitThreshold, glm::vec3 rootCenter = {}, float looseMargin = 0)
+	{
+		m_positions = positions;
+		m_radii = radii;
+		m_colliderCount = colliderCount;
+		m_splitThreshold = splitThreshold;
+		m_looseMargin = looseMargin;
+
+		EnsureIndexPool(colliderCount);
+
+		m_cells.clear();
+		m_cells.reserve(EstimateCellCount(colliderCount, splitThreshold));
+
+		Cell root{};
+		root.center = rootCenter;
+		root.halfExtent = rootHalfExtent;
+		root.colliderStart = 0;
+		root.colliderCount = colliderCount;
+		root.totalColliderCount = colliderCount;
+		m_cells.push_back(root);
+
+		BuildCellRecursive(0, 0);
+		CompactToDFSOrder();
+	}
+
+	// Flat leaf-pair query. Walks the DFS-ordered array; every leaf cell
+	// contributes its own collider pairs. No recursion, no pointer chasing.
+	void QueryPairs(std::vector<std::pair<int, int>>& out) const
+	{
+		for (const Cell& cell : m_cells)
+		{
+			if (!cell.IsLeaf()) continue;
+
+			for (int a = 0; a < cell.colliderCount; a++)
+				for (int b = a + 1; b < cell.colliderCount; b++)
+					out.emplace_back(m_indexPool[cell.colliderStart + a], m_indexPool[cell.colliderStart + b]);
+		}
+	}
+
+	const std::vector<Cell>& Cells() const { return m_cells; }
+
+private:
+	const glm::vec3* m_positions = nullptr;
+	const float* m_radii = nullptr;
+	int m_colliderCount = 0;
+
+	std::vector<int> m_indexPool;
+	std::vector<Cell> m_cells;
+
+	uint8_t m_splitThreshold = 0;
+	float m_looseMargin = 0;
+
+private:
+	void EnsureIndexPool(int colliderCount)
+	{
+		if ((int)m_indexPool.size() != colliderCount)
+		{
+			m_indexPool.resize(colliderCount);
+			for (int i = 0; i < colliderCount; ++i)
+				m_indexPool[i] = i;
+		}
+	}
+
+	static int EstimateCellCount(int colliderCount, int splitThreshold)
+	{
+		// Rough working-set guess so the vector rarely needs to grow during a build.
+		int threshold = std::max(1, (int)splitThreshold);
+		return std::max(64, (colliderCount / threshold) * 4);
+	}
+
+	static int GetChildSlot(const glm::vec3& center, const glm::vec3& pos)
+	{
+		return (pos.x > center.x) | ((pos.y > center.y) << 1) | ((pos.z > center.z) << 2);
+	}
+
+	// Classifies every index in [start, start+count) exactly once, then bucket-sorts
+	// them into 8 contiguous runs in indexPool. Two passes total (classify+count, place),
+	// versus the previous 7-way std::partition chain.
+	void BucketSortChildren(int start, int count, const glm::vec3& center,
+		std::array<int, 8>& outCounts, std::array<int, 8>& outStarts)
+	{
+		int* base = m_indexPool.data() + start;
+
+		std::vector<uint8_t> slots(count);
+		outCounts.fill(0);
+
+		for (int i = 0; i < count; i++)
+		{
+			uint8_t slot = (uint8_t)GetChildSlot(center, m_positions[base[i]]);
+			slots[i] = slot;
+			outCounts[slot]++;
+		}
+
+		int offset = 0;
+		for (int i = 0; i < 8; i++)
+		{
+			outStarts[i] = offset;
+			offset += outCounts[i];
+		}
+
+		std::vector<int> placed(count);
+		std::array<int, 8> cursor = outStarts;
+		for (int i = 0; i < count; i++)
+			placed[cursor[slots[i]]++] = base[i];
+
+		std::copy(placed.begin(), placed.end(), base);
+	}
+
+	// Splits one cell into up to 8 children. Returns the index of the first child.
+	int SplitCell(int cellIndex)
+	{
+		Cell cellCopy = m_cells[cellIndex]; // copy: m_cells may reallocate below
+
+		std::array<int, 8> counts{}, starts{};
+		BucketSortChildren(cellCopy.colliderStart, cellCopy.colliderCount, cellCopy.center, counts, starts);
+
+		int firstChild = (int)m_cells.size();
+		m_cells.resize(m_cells.size() + 8);
+
+		float childExtent = cellCopy.halfExtent * 0.5f;
+
+		for (int i = 0; i < 8; i++)
+		{
+			glm::vec3 offset{
+				(i & 1) ? childExtent : -childExtent,
+				(i & 2) ? childExtent : -childExtent,
+				(i & 4) ? childExtent : -childExtent
+			};
+
+			Cell child{};
+			child.center = cellCopy.center + offset;
+			child.halfExtent = childExtent + m_looseMargin;
+			child.colliderStart = cellCopy.colliderStart + starts[i];
+			child.colliderCount = counts[i];
+			child.totalColliderCount = counts[i];
+
+			m_cells[firstChild + i] = child;
+		}
+
+		Cell& cell = m_cells[cellIndex];
+		cell.childStart = firstChild;
+		cell.colliderCount = 0;
+		for (int i = 0; i < 8; i++)
+			if (counts[i] > 0)
+				cell.childMask |= (1 << i);
+
+		return firstChild;
+	}
+
+	void BuildCellRecursive(int cellIndex, uint8_t depth)
+	{
+		if (depth >= MaxDepth || m_cells[cellIndex].colliderCount < m_splitThreshold)
+			return;
+
+		int firstChild = SplitCell(cellIndex);
+
+		for (int i = 0; i < 8; i++)
+			if (m_cells[firstChild + i].colliderCount > 0)
+				BuildCellRecursive(firstChild + i, depth + 1);
+	}
+
+	// Rebuilds m_cells in depth-first pre-order and fills in skipCount, so a
+	// flat scan can either walk every cell (i++) or jump over a whole subtree
+	// (i += skipCount) without recursion.
+	void CompactToDFSOrder()
+	{
+		std::vector<Cell> ordered;
+		ordered.reserve(m_cells.size());
+
+		std::function<int(int)> visit = [&](int oldIndex) -> int
+			{
+				int newIndex = (int)ordered.size();
+				ordered.push_back(m_cells[oldIndex]);
+
+				Cell oldCell = m_cells[oldIndex]; // copy: recursive pushes below may reallocate
+				if (!oldCell.IsLeaf())
+				{
+					int newChildStart = -1;
+					for (int i = 0; i < 8; i++)
+					{
+						if (!(oldCell.childMask & (1 << i))) continue;
+						int childNewIndex = visit(oldCell.childStart + i);
+						if (newChildStart == -1)
+							newChildStart = childNewIndex;
+					}
+					ordered[newIndex].childStart = newChildStart;
+				}
+
+				ordered[newIndex].skipCount = (int)ordered.size() - newIndex;
+				return newIndex;
+			};
+
+		visit(0);
+		m_cells = std::move(ordered);
+	}
+};

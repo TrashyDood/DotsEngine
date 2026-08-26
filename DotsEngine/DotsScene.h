@@ -61,10 +61,9 @@ struct RenderContext
 
 class DotsScene
 {
-	CollisionTreeSOA<6> treeA, treeB;
-	CollisionTreeSOA<6> *readTree = &treeA, *writeTree = &treeB;
+	CollisionTree<6> treeA, treeB;
+	CollisionTree<6>* readTree = &treeA, *writeTree = &treeB;
 	std::future<void> buildTask;
-	std::vector<std::pair<int, int>> subtrees[8];
 
 	int* dotsHealths = nullptr;
 	glm::vec3* dotsPositions = nullptr;
@@ -76,7 +75,7 @@ class DotsScene
 	std::future<void> simulationThread;
 
 public:
-	static const uint32_t defaultDotsCount = 100000;
+	static const uint32_t defaultDotsCount = 20000;
 
 	static Camera* mainCamera;
 	FlyingCamera* flyingCamera = nullptr;
@@ -118,6 +117,4 @@ public:
 	void DotsScene_RenderMeshBuffers(RenderContext& context) const;
 
 	float RandomFloat(float min, float max) const;
-
-	void DotsScene_DebugDumpLeafSizes(CollisionTreeSOA<6>* tree);
 };

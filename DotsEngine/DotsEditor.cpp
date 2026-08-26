@@ -41,9 +41,13 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Indent(15);
 	ImGui::Text("Performance");
 
-	ImGui::Text(("Render FPS - " + std::to_string(Time::main_FPS)).c_str());
 	if (scene->threadedSimulation)
+	{
+		ImGui::Text(("Render FPS - " + std::to_string(Time::main_FPS)).c_str());
 		ImGui::Text(("Simulation FPS - " + std::to_string(Time::sim_FPS)).c_str());
+	}
+	else
+		ImGui::Text(("FPS - " + std::to_string(Time::main_FPS)).c_str());
 
 	memory = GetMemoryUsage();
 

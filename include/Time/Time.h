@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 class Time
 {
 public:
@@ -14,7 +16,7 @@ public:
         main_TotalTime += main_DeltaTime;
 
         if (main_DeltaTime > 0.0f) 
-            main_FPS = 1.0f / main_DeltaTime;
+            main_FPS = (int)(1.0f / main_DeltaTime);
     }
 
     static void UpdateSimulation(float currentTime)
@@ -25,6 +27,6 @@ public:
         sim_TotalTime += sim_DeltaTime;
 
         if (sim_DeltaTime > 0.0f)
-            sim_FPS = 1.0f / sim_DeltaTime;
+            sim_FPS = (int)(1.0f / sim_DeltaTime);
     }
 };

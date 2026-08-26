@@ -13,8 +13,6 @@
 
 #define LOG(x) std::cout << x << std::endl;
 
-extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char* lpOutputString); // debug
-
 namespace Colors
 {
 	constexpr uint32_t Red = 0xFF0000;
@@ -62,8 +60,12 @@ DotsScene::DotsScene()
 
 DotsScene::~DotsScene()
 {
+	// wait for sim thread to close
 	isSimulating.store(false, std::memory_order_relaxed);
 	if (simulationThread.valid()) simulationThread.get();
+
+	// wait for build thread to close
+	if (buildTask.valid()) buildTask.get();
 
 	delete mainCamera;
 	delete flyingCamera;
@@ -78,12 +80,17 @@ DotsScene::~DotsScene()
 
 void DotsScene::DotsScene_Start(uint32_t dotsCount, bool threadedSimulation)
 {
+	// if there is a previous sim thread active, close it
+	isSimulating.store(false, std::memory_order_relaxed);
+	if (simulationThread.valid()) simulationThread.get();
+
+	// if there is a previous build thread active, close it
+	if (buildTask.valid()) buildTask.get();
+
+
 	LOG("Dots simulation started with " << dotsCount <<
 		" dots and threaded simulation " << ((threadedSimulation) ? "on!" : "off!"));
 
-	// if there is a previous sim thread running, close it.
-	isSimulating.store(false, std::memory_order_relaxed);
-	if (simulationThread.valid()) simulationThread.get();
 
 	DotsScene::dotsCount = dotsCount;
 	DotsScene::threadedSimulation = threadedSimulation;
@@ -91,7 +98,7 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount, bool threadedSimulation)
 	renderContext.Init(dotsCount);
 	DotsScene_InitDotsData();
 
-	DotsScene_BuildCollisionTree_Async();
+	DotsScene_BuildCollisionTree_Async(); // start building the first tree with dots data
 
 	if (!threadedSimulation) return;
 
@@ -101,7 +108,7 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount, bool threadedSimulation)
 	{
 		tracy::SetThreadName("Simulation Thread");
 
-		const float targetFrameTime = 1.f / 165.f; // fps cap
+		const float targetFrameTime = 1.f / 60.f; // fps cap
 		Time::sim_LastFrameTime = (float)glfwGetTime();
 
 		while (isSimulating.load(std::memory_order_relaxed))
@@ -125,8 +132,8 @@ void DotsScene::DotsScene_Render(RenderContext& context) const
 	DotsScene_RenderMeshBuffers(context);
 	DotsScene_DrawBounds();
 
-	if (drawTree)
-		readTree->DrawCell();
+	//if (drawTree)
+	//	readTree->DrawCell();
 }
 
 void DotsScene::DotsScene_Simulate(float deltaTime)
@@ -136,13 +143,6 @@ void DotsScene::DotsScene_Simulate(float deltaTime)
 
 	DotsScene_BuildCollisionTree_Async(); // starts building this frame's tree asynchronously
 	DotsScene_HandleCollisions();
-
-	static bool dumped = false;
-	if (!dumped)
-	{
-		DotsScene_DebugDumpLeafSizes(readTree);
-		dumped = true;
-	}
 
 	DotsScene_UpdateTransformBuffers(); // updates transform buffers for rendering
 }
@@ -271,63 +271,77 @@ void DotsScene::DotsScene_SetDotHealth(int dot, int health)
 #pragma region Collision Management
 void DotsScene::DotsScene_BuildCollisionTree_Async()
 {
+	//{
+	//	ZoneScopedNC("Build Tree", Colors::Collision);
+	//	readTree->Build(dotsPositions, dotsRadii, dotsCount, bounds, 25);
+	//}
+
+	//return;
+
 	if (buildTask.valid()) // wait for the previous tree to finish building
 		buildTask.get();
 
 	std::swap(readTree, writeTree);
 
 	buildTask = StaticThreadPool().Submit(
-		[this]()
-		{
-			ZoneScopedNC("Build Tree", Colors::Collision);
-
-			writeTree->StartBuild(dotsPositions, dotsRadii, dotsCount, bounds, 15);
-			std::vector<std::future<void>> tasks;
-			writeTree->BuildCells_Parallel(0, 0, 2000, tasks);
-			for (auto& t : tasks) t.get();
-		});
+	[this]()
+	{
+		ZoneScopedNC("Build Tree", Colors::Collision);
+		writeTree->Build(dotsPositions, dotsRadii, dotsCount, bounds, 15);
+	});
 }
 
 void DotsScene::DotsScene_HandleCollisions()
 {
-	for (auto& s : subtrees)
-		s.clear();
-
-	int childCount;
+	std::vector<std::pair<int, int>> pairs;
 
 	{
-		ZoneScopedNC("Query Tree", Colors::Collision);
-
-		int childIndices[8];
-		readTree->GetRootChildren(childIndices, childCount);
-
-		if (childCount == 0)
-		{
-			readTree->QueryCell(subtrees[0], 0);
-			childCount = 1;
-		}
-		else
-		{
-			std::future<void> threadResults[8];
-			for (int i = 0; i < childCount; i++)
-				threadResults[i] = StaticThreadPool().Submit(
-					[this, childIndices, i]()
-					{
-						readTree->QueryCell(subtrees[i], childIndices[i]);
-					});
-
-			for (int i = 0; i < childCount; i++)
-				threadResults[i].get();
-		}
+		ZoneScopedNC("Query Collisions", Colors::Collision);
+		readTree->QueryPairs(pairs);
 	}
 
 	{
-		ZoneScopedNC("Resolve Collitions", Colors::Collision);
-
-		for (int i = 0; i < childCount; i++)
-			for (auto& pair : subtrees[i])
-				DotsScene_ResolveCollision(pair.first, pair.second);
+		ZoneScopedNC("Resolve Collisions", Colors::Collision);
+		for (auto pair : pairs)
+			DotsScene_ResolveCollision(pair.first, pair.second);
 	}
+
+	//std::vector<std::pair<int, int>> subtrees[8];
+	//int childCount;
+
+	//{
+	//	ZoneScopedNC("Query Tree", Colors::Collision);
+
+	//	int childIndices[8];
+	//	readTree->GetRootChildren(childIndices, childCount);
+
+	//	if (childCount == 0)
+	//	{
+	//		readTree->QueryCell(subtrees[0], 0);
+	//		childCount = 1;
+	//	}
+	//	else
+	//	{
+	//		std::future<void> threadResults[8];
+	//		for (int i = 0; i < childCount; i++)
+	//			threadResults[i] = StaticThreadPool().Submit(
+	//				[this, &subtrees, childIndices, i]()
+	//				{
+	//					readTree->QueryCell(subtrees[i], childIndices[i]);
+	//				});
+
+	//		for (int i = 0; i < childCount; i++)
+	//			threadResults[i].get();
+	//	}
+	//}
+
+	//{
+	//	ZoneScopedNC("Resolve Collitions", Colors::Collision);
+
+	//	for (int i = 0; i < childCount; i++)
+	//		for (auto& pair : subtrees[i])
+	//			DotsScene_ResolveCollision(pair.first, pair.second);
+	//}
 }
 
 void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
@@ -411,33 +425,6 @@ float DotsScene::RandomFloat(float min, float max) const
 	static std::mt19937 gen(rd());
 	std::uniform_real_distribution<float> dist(min, max);
 	return dist(gen);
-}
-
-void DotsScene::DotsScene_DebugDumpLeafSizes(CollisionTreeSOA<6>* tree)
-{
-	OutputDebugStringA("dump called\n");
-
-	std::function<void(int, int)> walk = [&](int cellIndex, int depth)
-		{
-			auto& cell = tree->cellPool[cellIndex];
-
-			if (cell.childStart == -1) // leaf
-			{
-				if (cell.colliderCount > 0)
-				{
-					std::string msg = "leaf depth=" + std::to_string(depth) +
-						" count=" + std::to_string(cell.colliderCount) + "\n";
-					OutputDebugStringA(msg.c_str());
-				}
-				return;
-			}
-
-			for (int i = 0; i < 8; i++)
-				if (cell.childMask & (1 << i))
-					walk(cell.childStart + i, depth + 1);
-		};
-
-	walk(0, 0);
 }
 
 void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount, bool threadedSimulation)

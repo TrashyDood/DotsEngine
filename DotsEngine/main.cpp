@@ -83,8 +83,8 @@ int main(int argc, char* argv[])
 	Input::Init(window);
 	glEnable(GL_DEPTH_TEST);
 
-	uint32_t pendingDotsCount = DotsScene::defaultDotsCount;
-	if (argc > 1 && (pendingDotsCount = std::atoi(argv[1])) > 0)
+	uint32_t pendingDotsCount = std::atoi(argv[1]);
+	if (argc > 1 && pendingDotsCount < 1)
 	{
 		std::cerr << "Invalid dot count argument, using default.\n";
 		pendingDotsCount = DotsScene::defaultDotsCount;
