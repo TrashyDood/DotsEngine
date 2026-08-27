@@ -109,18 +109,20 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount, bool threadedSimulation)
 		tracy::SetThreadName("Simulation Thread");
 
 		const float targetFrameTime = 1.f / 60.f; // fps cap
+
 		Time::sim_LastFrameTime = (float)glfwGetTime();
 
 		while (isSimulating.load(std::memory_order_relaxed))
 		{
-			float currentTime = (float)glfwGetTime();
-			Time::UpdateSimulation(currentTime);
+			float startTime = (float)glfwGetTime();
 
 			DotsScene_Simulate(Time::sim_DeltaTime);
 
-			float elapsed = (float)glfwGetTime() - currentTime;
+			float elapsed = (float)glfwGetTime() - startTime;
 			while (elapsed < targetFrameTime)
-				elapsed = (float)glfwGetTime() - currentTime;
+				elapsed = (float)glfwGetTime() - startTime;
+
+			Time::UpdateSimulation(startTime);
 
 			FrameMarkNamed("Simulation");
 		}
@@ -138,13 +140,13 @@ void DotsScene::DotsScene_Render(RenderContext& context) const
 
 void DotsScene::DotsScene_Simulate(float deltaTime)
 {	
-	DotsScene_HandleBoundsCollisions();
-	DotsScene_UpdateDotsData(deltaTime);
+	//DotsScene_HandleBoundsCollisions();
+	//DotsScene_UpdateDotsData(deltaTime);
 
 	DotsScene_BuildCollisionTree_Async(); // starts building this frame's tree asynchronously
-	DotsScene_HandleCollisions();
+	//DotsScene_HandleCollisions();
 
-	DotsScene_UpdateTransformBuffers(); // updates transform buffers for rendering
+	//DotsScene_UpdateTransformBuffers(); // updates transform buffers for rendering
 }
 
 #pragma region Dot Management
@@ -187,10 +189,10 @@ void DotsScene::DotsScene_UpdateDotsData(float deltaTime)
 		ZoneScopedNC("Update Dots Position", Colors::UpdateMain);
 
 		StaticThreadPool().For_Parallel<16>(dotsCount,
-			[this, deltaTime](uint32_t thread, uint32_t chunkStart, uint32_t dot)
+			[this, deltaTime](uint16_t thread, uint32_t chunkStart, size_t dot)
 			{
 				DotsScene_SetDotHealth(dot, dotsHealths[dot]);
-				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotSpeed / dotsRadii[dot]) * deltaTime;
+				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * deltaTime;
 			});
 	}
 }
@@ -271,13 +273,6 @@ void DotsScene::DotsScene_SetDotHealth(int dot, int health)
 #pragma region Collision Management
 void DotsScene::DotsScene_BuildCollisionTree_Async()
 {
-	//{
-	//	ZoneScopedNC("Build Tree", Colors::Collision);
-	//	readTree->Build(dotsPositions, dotsRadii, dotsCount, bounds, 25);
-	//}
-
-	//return;
-
 	if (buildTask.valid()) // wait for the previous tree to finish building
 		buildTask.get();
 
@@ -287,7 +282,8 @@ void DotsScene::DotsScene_BuildCollisionTree_Async()
 	[this]()
 	{
 		ZoneScopedNC("Build Tree", Colors::Collision);
-		writeTree->Build(dotsPositions, dotsRadii, dotsCount, bounds, 15);
+		writeTree->Build(dotsPositions, dotsRadii,
+			dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
 	});
 }
 
@@ -297,7 +293,7 @@ void DotsScene::DotsScene_HandleCollisions()
 
 	{
 		ZoneScopedNC("Query Collisions", Colors::Collision);
-		readTree->QueryPairs(pairs);
+		readTree->QueryPairs_Parallel(pairs);
 	}
 
 	{
@@ -305,43 +301,6 @@ void DotsScene::DotsScene_HandleCollisions()
 		for (auto pair : pairs)
 			DotsScene_ResolveCollision(pair.first, pair.second);
 	}
-
-	//std::vector<std::pair<int, int>> subtrees[8];
-	//int childCount;
-
-	//{
-	//	ZoneScopedNC("Query Tree", Colors::Collision);
-
-	//	int childIndices[8];
-	//	readTree->GetRootChildren(childIndices, childCount);
-
-	//	if (childCount == 0)
-	//	{
-	//		readTree->QueryCell(subtrees[0], 0);
-	//		childCount = 1;
-	//	}
-	//	else
-	//	{
-	//		std::future<void> threadResults[8];
-	//		for (int i = 0; i < childCount; i++)
-	//			threadResults[i] = StaticThreadPool().Submit(
-	//				[this, &subtrees, childIndices, i]()
-	//				{
-	//					readTree->QueryCell(subtrees[i], childIndices[i]);
-	//				});
-
-	//		for (int i = 0; i < childCount; i++)
-	//			threadResults[i].get();
-	//	}
-	//}
-
-	//{
-	//	ZoneScopedNC("Resolve Collitions", Colors::Collision);
-
-	//	for (int i = 0; i < childCount; i++)
-	//		for (auto& pair : subtrees[i])
-	//			DotsScene_ResolveCollision(pair.first, pair.second);
-	//}
 }
 
 void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
@@ -354,8 +313,7 @@ void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
 	if (distSqr > radiusSum * radiusSum || distSqr < minDistSqrEpsilon)
 		return;
 
-	float dist = std::sqrt(distSqr);
-	glm::vec3 normal = diff / dist;
+	glm::vec3 normal = diff / std::sqrt(distSqr);
 
 	// push apart so they're not still overlapping next frame
 	//glm::vec3 correction = normal * (radiusSum - dist);
@@ -433,7 +391,7 @@ void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount, bool threadedSimul
 	float spacing = 8.0f;
 	float volumePerEntity = spacing * spacing * spacing;
 	float totalVolume = dotsCount * volumePerEntity;
-	dotSpeed = 7.0f;
+	dotsSpeed = 7.0f;
 	bounds = cbrt(totalVolume);
 	DotsScene_Start(dotsCount, threadedSimulation);
 	// TOUCH THIS AND YOU DO NOT QUALIFY FOR LEADERBOARD

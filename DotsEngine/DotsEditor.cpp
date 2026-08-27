@@ -55,28 +55,24 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Unindent();
 	ImGui::Separator();
 	ImGui::NewLine();
-
-	ImGui::Checkbox("Collision test", &CollisionCheck);
 	ImGui::Checkbox("Draw tree", &scene->drawTree);
 
 	ImGui::InputInt("DotAmount", &pendingDotsCount, 10, 100);
-	ImGui::InputFloat("DotSpeed", &scene->dotSpeed, 1.0f, 10.0f);
+	ImGui::InputFloat("DotSpeed", &scene->dotsSpeed, 1.0f, 10.0f);
 	ImGui::SliderFloat("DotBounds", &scene->bounds, 10.0f, 200.0f);
 
 	if (ImGui::Button("Start simulation"))
-	{
-		if (CollisionCheck)
-		{
-			scene->DotsScene_Start(2);
-			scene->DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
-			scene->DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
-		}
-		else
-			scene->DotsScene_Start(pendingDotsCount);
-	}
-
-	if (ImGui::Button("Leaderboard mode"))
+		scene->DotsScene_Start(pendingDotsCount);
+	else if (ImGui::Button("Leaderboard mode"))
 		scene->DotsScene_LeaderBoardMode(pendingDotsCount);
+	else if (ImGui::Button("Collision test"))
+	{
+		scene->DotsScene_Start(2);
+		scene->DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
+		scene->DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
+		scene->dotsSpeed = 20.f;
+		scene->bounds = 25.f;
+	}
 
 	ImGui::End();
 

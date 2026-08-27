@@ -16,6 +16,5 @@ public:
 private:
 	DebugLines* lines;
 	DotsScene* scene;
-	bool CollisionCheck;
 	bool leakingMemory;
 };

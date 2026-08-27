@@ -65,9 +65,9 @@ public:
 	{
 		size_t chunkSize = (count + ParallelForThreadCount - 1) / ParallelForThreadCount;
 		std::future<void> threadResults[ParallelForThreadCount];
-		int usedThreads = 0;
+		uint16_t usedThreads = 0;
 
-		for (int thread = 0; thread < ParallelForThreadCount; thread++)
+		for (uint16_t thread = 0; thread < ParallelForThreadCount; thread++)
 		{
 			uint32_t chunkStart = thread * chunkSize;
 			if (chunkStart >= count)
@@ -78,7 +78,7 @@ public:
 			threadResults[thread] = Submit(
 				[chunkStart, chunkEnd, thread, &func]()
 				{
-					for (uint32_t index = chunkStart; index < chunkEnd; index++)
+					for (size_t index = chunkStart; index < chunkEnd; index++)
 						func(thread, chunkStart, index);
 				});
 

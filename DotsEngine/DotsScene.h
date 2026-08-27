@@ -61,8 +61,8 @@ struct RenderContext
 
 class DotsScene
 {
-	CollisionTree<6> treeA, treeB;
-	CollisionTree<6>* readTree = &treeA, *writeTree = &treeB;
+	CollisionTree treeA, treeB;
+	CollisionTree* readTree = &treeA, *writeTree = &treeB;
 	std::future<void> buildTask;
 
 	int* dotsHealths = nullptr;
@@ -82,7 +82,7 @@ public:
 	RenderContext renderContext;
 
 	float bounds = 50.0f,
-		dotSpeed = 5.0f;
+		dotsSpeed = 5.0f;
 	bool drawTree = false,
 		threadedSimulation = false;
 
@@ -99,7 +99,6 @@ public:
 
 	void DotsScene_DrawBounds() const;
 
-	// Dot management with SoA
 	void DotsScene_InitDotsData();
 	void DotsScene_ClearDotsData();
 	void DotsScene_UpdateDotsData(float deltaTime);
@@ -107,13 +106,11 @@ public:
 	void DotsScene_SetDotData(int dot, glm::vec3 position = {}, glm::vec3 velocity = {}, int health = 3);
 	void DotsScene_SetDotHealth(int dot, int health);
 
-	// Collision handling with SoA
 	void DotsScene_BuildCollisionTree_Async();
 	void DotsScene_HandleCollisions();
 	void DotsScene_ResolveCollision(int dot1, int dot2);
 	void DotsScene_HandleBoundsCollisions();
 
-	// Rendering
 	void DotsScene_RenderMeshBuffers(RenderContext& context) const;
 
 	float RandomFloat(float min, float max) const;
