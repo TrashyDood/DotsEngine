@@ -373,6 +373,7 @@ public:
 		int skipCount = 1;     // number of array slots this cell's subtree occupies (itself included)
 
 		bool IsLeaf() const { return childStart == -1; }
+		bool HasChild(uint8_t octant) const { return childMask& (1 << octant); }
 	};
 
 	void Build(const glm::vec3* positions, const float* radii, int colliderCount,
