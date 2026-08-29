@@ -111,9 +111,6 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		float currentTime = (float)glfwGetTime();
-		Time::UpdateMain(currentTime);
-
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -123,10 +120,12 @@ int main(int argc, char* argv[])
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		scene.DotsScene_Update();
-		scene.flyingCamera.Update();
+		//
+		StaticTime().Tick((float)glfwGetTime());
+
+		scene.DotsScene_Tick();
 		editor.DotsEditor_Draw();
-		lines.DrawDebugLines(scene.mainCamera);
+		lines.DrawDebugLines(scene.camera);
 		//
 
 		ImGui::Render();

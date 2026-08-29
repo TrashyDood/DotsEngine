@@ -40,7 +40,7 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Indent(15);
 	ImGui::Text("Performance");
 
-	ImGui::Text(("FPS - " + std::to_string(Time::main_FPS)).c_str());
+	ImGui::Text(("FPS - " + std::to_string(StaticTime().FPS())).c_str());
 
 	memory = GetMemoryUsage();
 
@@ -71,7 +71,7 @@ void DotsEditor::DotsEditor_CheckLeak()
 {
 	//ask oscar if he has a better idea cuz this is nutz
 
-	Leak_Current += Time::main_DeltaTime;
+	Leak_Current += StaticTime().DeltaTime();
 
 	if (Leak_Current >= Leak_Check)
 	{
@@ -101,7 +101,7 @@ void DotsEditor::DotsEditor_CheckLeak()
 
 void DotsEditor::DotsEditor_ShowLeak()
 {
-	float pulse = (sinf(Time::main_TotalTime * 15.0f) + 1.0f) * 0.5f;
+	float pulse = (sinf(StaticTime().TotalTime() * 15.0f) + 1.0f) * 0.5f;
 
 	ImVec4 color = ImVec4(pulse, 0.0f, 0.0f, 1.0f);
 

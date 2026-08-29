@@ -24,9 +24,9 @@ public:
 		int colliderCount = 0;
 		int totalColliderCount = 0;
 
-		int childStart = -1;   // index of first child, in DFS order, after compaction
+		int childStart = -1; // index of first child, in DFS order, after compaction
 		uint8_t childMask = 0;
-		int skipCount = 1;     // number of array slots this cell's subtree occupies (itself included)
+		int skipCount = 1; // number of array slots this cell's subtree occupies (itself included)
 
 		bool IsLeaf() const { return childStart == -1; }
 		bool HasChild(uint8_t octant) const { return childMask& (1 << octant); }

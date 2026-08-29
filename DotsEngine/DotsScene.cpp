@@ -13,18 +13,12 @@
 
 #define LOG(x) std::cout << x << "\n";
 
-DotsScene::DotsScene() : mainCamera(Camera()), flyingCamera(FlyingCamera(mainCamera))
-{
-	mainCamera.SetPosition(glm::vec3(0, 0, bounds * 4));
-}
+DotsScene::DotsScene() : camera(FlyingCamera()) {}
 
 DotsScene::~DotsScene()
 {
-	// wait for sim thread to close
 	if (simulationTask.valid()) simulationTask.get();
-
-	// wait for build thread to close
-	if (buildTask.valid()) buildTask.get();
+	if (treeTask.valid()) treeTask.get();
 
 	delete DotAssets::SphereShader();
 	for (auto& mesh : DotAssets::Meshes())
@@ -36,12 +30,8 @@ DotsScene::~DotsScene()
 
 void DotsScene::DotsScene_Start(uint32_t dotsCount)
 {
-	// if there is a previous sim thread active, close it
 	if (simulationTask.valid()) simulationTask.get();
-
-	// if there is a previous build thread active, close it
-	if (buildTask.valid()) buildTask.get();
-
+	if (treeTask.valid()) treeTask.get();
 
 	LOG("Dots simulation started with " << dotsCount <<
 		" dots and threaded simulation " << ((asyncSimulation) ? "on!" : "off!"));
@@ -50,10 +40,15 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount)
 
 	renderContext.Init(dotsCount);
 	DotsScene_InitDotsData();
+
+	camera.SetPosition(glm::vec3(0, 0, bounds * 2));
+	camera.LookAt(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 }
 
-void DotsScene::DotsScene_Update()
+void DotsScene::DotsScene_Tick()
 {
+	camera.Update();
+
 	if (asyncSimulation)
 		DotsScene_Simulate_Async();
 	else
@@ -81,13 +76,12 @@ void DotsScene::DotsScene_Simulate()
 {	
 	ZoneScopedNC("Simulation", HexColors::Purple);
 
+	std::vector<std::pair<int, int>> collisionPairs;
+	DotsScene_BuildAndQueryTree(collisionPairs, *writeTree);
+	DotsScene_ResolveCollisions(collisionPairs);
+
 	DotsScene_HandleBoundsCollisions();
 	DotsScene_UpdateDotsData();
-
-	std::vector<std::pair<int, int>> pairs;
-	DotsScene_BuildCollisionTree_Async();
-	DotsScene_QueryCollisions_Async(pairs);
-	DotsScene_ResolveCollisions_Async(pairs);
 
 	DotsScene_UpdateTransformBuffers();
 }
@@ -134,17 +128,24 @@ void DotsScene::DotsScene_ClearDotsData()
 	dotsMeshIndices = nullptr;
 }
 
-void DotsScene::DotsScene_UpdateDotsData()
+void DotsScene::DotsScene_UpdateDotsData(bool parallel)
 {
 	{
 		ZoneScopedNC("Update Dots Position", HexColors::Update);
 
-		StaticThreadPool().For_Parallel<16>(dotsCount,
-			[this](uint16_t thread, uint32_t chunkStart, size_t dot)
+		if (parallel)
+			StaticThreadPool().For_Parallel<16>(dotsCount,
+				[this](uint16_t thread, uint32_t chunkStart, size_t dot)
+				{
+					DotsScene_SetDotHealth(dot, dotsHealths[dot]);
+					dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * StaticTime().DeltaTime();
+				});
+		else
+			for (size_t dot = 0; dot < dotsCount; dot++)
 			{
 				DotsScene_SetDotHealth(dot, dotsHealths[dot]);
-				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * Time::main_DeltaTime;
-			});
+				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * StaticTime().DeltaTime();
+			}
 	}
 }
 
@@ -222,28 +223,35 @@ void DotsScene::DotsScene_SetDotHealth(int dot, int health)
 #pragma endregion
 
 #pragma region Collision Management
-void DotsScene::DotsScene_BuildCollisionTree_Async()
+void DotsScene::DotsScene_BuildAndQueryTree(std::vector<std::pair<int, int>>& pairs, CollisionTree& tree, bool async)
 {
-	if (buildTask.valid()) buildTask.get();
-
-	std::swap(readTree, writeTree);
-
-	buildTask = StaticThreadPool().Submit(
-	[this]()
+	if (async)
 	{
-		ZoneScopedNC("Build Tree", HexColors::Collision);
-		writeTree->Build(dotsPositions, dotsRadii,
+		if (treeTask.valid()) treeTask.get();
+
+		std::swap(readTree, writeTree);
+
+		treeTask = StaticThreadPool().Submit(
+			[this]()
+			{
+				ZoneScopedNC("Build And Query Collisions Async", HexColors::Collision);
+				writeTree->Build(dotsPositions, dotsRadii,
+					dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
+
+
+			});
+	}
+	else
+	{
+		ZoneScopedNC("Build And Query Collisions", HexColors::Collision);
+
+		tree.Build(dotsPositions, dotsRadii,
 			dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
-	});
+		tree.QueryPairs(pairs);
+	}
 }
 
-void DotsScene::DotsScene_QueryCollisions_Async(std::vector<std::pair<int, int>>& pairs)
-{
-	ZoneScopedNC("Query Collisions", HexColors::Collision);
-	readTree->QueryPairs(pairs);
-}
-
-void DotsScene::DotsScene_ResolveCollisions_Async(std::vector<std::pair<int, int>>& pairs)
+void DotsScene::DotsScene_ResolveCollisions(std::vector<std::pair<int, int>>& pairs)
 {
 	ZoneScopedNC("Resolve Collisions", HexColors::Collision);
 	for (auto pair : pairs)
@@ -310,7 +318,7 @@ void DotsScene::DotsScene_RenderMeshBuffers(RenderContext& context) const
 	using namespace DotAssets;
 
 	SphereShader()->Bind();
-	SphereShader()->SetUniformMat4("ViewProjection", mainCamera.GetViewProjection());
+	SphereShader()->SetUniformMat4("ViewProjection", camera.GetViewProjection());
 
 	int readSet = context.GetReadBufferIndex();
 	for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)

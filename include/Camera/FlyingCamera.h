@@ -4,17 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-class FlyingCamera
+class FlyingCamera : public Camera
 {
-public:
-    FlyingCamera(Camera& camera);
-    void Update();
-
-private:
-    void OnMouseMove(float dx, float dy);
-
-    Camera& m_Camera;
-
     float m_Yaw;
     float m_Pitch;
 
@@ -24,4 +15,11 @@ private:
 
     float m_MoveSpeed = 30.0f;
     float m_MouseSensitivity = 0.5f;
+
+public:
+    FlyingCamera();
+    void Update();
+
+private:
+    void OnMouseMove(float dx, float dy);
 };

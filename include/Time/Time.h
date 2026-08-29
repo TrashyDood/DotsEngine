@@ -4,17 +4,30 @@
 
 class Time
 {
+    float deltaTime = 0.0f,
+        lastFrameTime = 0.0f,
+        totalTime = 0.0f,
+        fps = 0.0f,
+        minFrameTime = 0.0f;
+
 public:
-    static float main_DeltaTime, main_LastFrameTime, main_TotalTime, main_FPS;
+    const float& DeltaTime() const { return deltaTime; }
+    const float& FPS() const { return fps; }
+    const float& TotalTime() const { return totalTime; }
 
-    static void UpdateMain(float currentTime)
+    void Tick(float currentTime)
     {
-        main_DeltaTime = currentTime - main_LastFrameTime;
-        main_LastFrameTime = currentTime;
+        deltaTime = currentTime - lastFrameTime;
+        lastFrameTime = currentTime;
+        totalTime += deltaTime;
 
-        main_TotalTime += main_DeltaTime;
-
-        if (main_DeltaTime > 0.0f) 
-            main_FPS = (int)(1.0f / main_DeltaTime);
+        if (deltaTime > 0.0f)
+            fps = (int)(1.0f / deltaTime);
     }
 };
+
+inline Time& StaticTime()
+{
+    static Time time;
+    return time;
+}

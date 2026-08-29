@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <Input/Input.h>
 
-FlyingCamera::FlyingCamera(Camera& camera) : m_Camera(camera)
+FlyingCamera::FlyingCamera() : Camera()
 {
 	m_Yaw = -90.0f;
 	m_Pitch = 0.0f;
@@ -12,35 +12,26 @@ FlyingCamera::FlyingCamera(Camera& camera) : m_Camera(camera)
 	m_Right = glm::vec3(1, 0, 0);
 	m_Up = glm::vec3(0, 1, 0);
 
-	m_Camera.LookAt(m_Camera.GetPosition() + m_Forward, m_Up);
+	LookAt(GetPosition() + m_Forward, m_Up);
 }
 
 void FlyingCamera::Update()
 {
-    float dt = Time::main_DeltaTime;
+	if (!Input::MouseDown(GLFW_MOUSE_BUTTON_RIGHT)) return;
 
-    bool mouseCaptured = Input::MouseDown(GLFW_MOUSE_BUTTON_RIGHT);
+    OnMouseMove((float)Input::MouseDeltaX(), (float)Input::MouseDeltaY());
 
-    if (!mouseCaptured) 
-    {
-        return;
-    }
+    glm::vec3 position = GetPosition();
 
-    float dx = (float)Input::MouseDeltaX();
-    float dy = (float)Input::MouseDeltaY();
-    OnMouseMove(dx, dy);
+    if (Input::KeyDown(GLFW_KEY_W)) position += m_Forward * m_MoveSpeed * StaticTime().DeltaTime();
+    if (Input::KeyDown(GLFW_KEY_S)) position -= m_Forward * m_MoveSpeed * StaticTime().DeltaTime();
+    if (Input::KeyDown(GLFW_KEY_A)) position -= m_Right * m_MoveSpeed * StaticTime().DeltaTime();
+    if (Input::KeyDown(GLFW_KEY_D)) position += m_Right * m_MoveSpeed * StaticTime().DeltaTime();
+    if (Input::KeyDown(GLFW_KEY_SPACE)) position += m_Up * m_MoveSpeed * StaticTime().DeltaTime();
+    if (Input::KeyDown(GLFW_KEY_LEFT_SHIFT)) position -= m_Up * m_MoveSpeed * StaticTime().DeltaTime();
 
-    glm::vec3 position = m_Camera.GetPosition();
-
-    if (Input::KeyDown(GLFW_KEY_W)) position += m_Forward * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_S)) position -= m_Forward * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_A)) position -= m_Right * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_D)) position += m_Right * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_SPACE)) position += m_Up * m_MoveSpeed * dt;
-    if (Input::KeyDown(GLFW_KEY_LEFT_SHIFT)) position -= m_Up * m_MoveSpeed * dt;
-
-    m_Camera.SetPosition(position);
-    m_Camera.LookAt(position + m_Forward, m_Up);
+    SetPosition(position);
+    LookAt(position + m_Forward, m_Up);
 }
 
 void FlyingCamera::OnMouseMove(float dx, float dy)
