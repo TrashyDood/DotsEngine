@@ -64,6 +64,10 @@ class DotsScene
 	CollisionTree treeA, treeB;
 	CollisionTree* readTree = &treeA, *writeTree = &treeB;
 	std::future<void> buildTask;
+	std::future<void> queryTask;
+	std::future<void> resolveTask;
+
+	std::future<void> simulationTask;
 
 	int* dotsHealths = nullptr;
 	glm::vec3* dotsPositions = nullptr;
@@ -71,43 +75,44 @@ class DotsScene
 	float* dotsRadii = nullptr;
 	int* dotsMeshIndices = nullptr;
 
-	std::atomic<bool> isSimulating{ true };
-	std::future<void> simulationThread;
-
 public:
-	static const uint32_t defaultDotsCount = 20000;
+	static const uint32_t dotsCount_Default = 40000;
 
-	static Camera* mainCamera;
-	FlyingCamera* flyingCamera = nullptr;
+	Camera mainCamera;
+	FlyingCamera flyingCamera;
 	RenderContext renderContext;
 
 	float bounds = 50.0f,
 		dotsSpeed = 5.0f;
 	bool drawTree = false,
-		threadedSimulation = false;
+		asyncSimulation = true;
 
 	uint32_t dotsCount = 0;
 
 	DotsScene();
 	~DotsScene();
 
-	void DotsScene_Start(uint32_t dotsCount = defaultDotsCount, bool threadedSimulation = true);
-	void DotsScene_LeaderBoardMode(uint32_t dotsCount = defaultDotsCount, bool threadedSimulation = true);
+	void DotsScene_Start(uint32_t dotsCount = dotsCount_Default);
+	void DotsScene_LeaderBoardMode(uint32_t dotsCount = dotsCount_Default);
+	void DotsScene_CollisionTest();
 
+	void DotsScene_Update();
 	void DotsScene_Render(RenderContext& context) const;
-	void DotsScene_Simulate(float deltaTime);
+	void DotsScene_Simulate();
+	void DotsScene_Simulate_Async();
 
 	void DotsScene_DrawBounds() const;
 
 	void DotsScene_InitDotsData();
 	void DotsScene_ClearDotsData();
-	void DotsScene_UpdateDotsData(float deltaTime);
+	void DotsScene_UpdateDotsData();
 	void DotsScene_UpdateTransformBuffers();
 	void DotsScene_SetDotData(int dot, glm::vec3 position = {}, glm::vec3 velocity = {}, int health = 3);
 	void DotsScene_SetDotHealth(int dot, int health);
 
 	void DotsScene_BuildCollisionTree_Async();
-	void DotsScene_HandleCollisions();
+	void DotsScene_QueryCollisions_Async(std::vector<std::pair<int, int>>& pairs);
+	void DotsScene_ResolveCollisions_Async(std::vector<std::pair<int, int>>& pairs);
 	void DotsScene_ResolveCollision(int dot1, int dot2);
 	void DotsScene_HandleBoundsCollisions();
 

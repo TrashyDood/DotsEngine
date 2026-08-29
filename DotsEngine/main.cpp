@@ -78,22 +78,28 @@ int main(int argc, char* argv[])
 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-	DotsScene* scene = new DotsScene();
-	glfwSetWindowUserPointer(window, scene);
+	DotsScene scene;
+	DebugLines lines;
+
+	glfwSetWindowUserPointer(window, &scene);
 	Input::Init(window);
 	glEnable(GL_DEPTH_TEST);
 
-	uint32_t pendingDotsCount = std::atoi(argv[1]);
-	if (argc > 1 && pendingDotsCount < 1)
+	uint32_t dotsCount_Pending = DotsScene::dotsCount_Default;
+	if (argc > 1)
 	{
-		std::cerr << "Invalid dot count argument, using default.\n";
-		pendingDotsCount = DotsScene::defaultDotsCount;
+		dotsCount_Pending = std::atoi(argv[1]);
+		if (dotsCount_Pending < 1)
+		{
+			std::cerr << "Invalid dot count argument, using default.\n";
+			dotsCount_Pending = DotsScene::dotsCount_Default;
+		}
 	}
 
-	scene->DotsScene_LeaderBoardMode(pendingDotsCount); // for profiling
+	scene.DotsScene_LeaderBoardMode(dotsCount_Pending);
 	//glfwSwapInterval(0); // disable vsync for profiling
 
-	DotsEditor* editor = new DotsEditor(scene);
+	DotsEditor editor(&scene);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -117,13 +123,10 @@ int main(int argc, char* argv[])
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//
-		if (!scene->threadedSimulation)
-			scene->DotsScene_Simulate(Time::main_DeltaTime);
-
-		scene->DotsScene_Render(scene->renderContext);
-		scene->flyingCamera->Update();
-		editor->DotsEditor_Draw();
+		scene.DotsScene_Update();
+		scene.flyingCamera.Update();
+		editor.DotsEditor_Draw();
+		lines.DrawDebugLines(scene.mainCamera);
 		//
 
 		ImGui::Render();
@@ -135,9 +138,6 @@ int main(int argc, char* argv[])
 
 		FrameMarkNamed("Main");
 	}
-
-	delete editor;
-	delete scene;
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

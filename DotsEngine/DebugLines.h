@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+class Camera;
 class Shader;
 class DebugLines
 {
@@ -10,7 +11,7 @@ class DebugLines
 	public:
 
 		DebugLines();
-		void DrawDebugLines();
+		void DrawDebugLines(Camera& camera);
 
 		void AllocateLines(unsigned int aSize);
 

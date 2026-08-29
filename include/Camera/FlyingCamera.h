@@ -7,13 +7,13 @@
 class FlyingCamera
 {
 public:
-    FlyingCamera(Camera* camera);
+    FlyingCamera(Camera& camera);
     void Update();
 
 private:
     void OnMouseMove(float dx, float dy);
 
-    Camera* m_Camera = nullptr;
+    Camera& m_Camera;
 
     float m_Yaw;
     float m_Pitch;

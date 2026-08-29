@@ -15,7 +15,7 @@ DebugLines::DebugLines()
 	AllocateLines(2000);
 }
 
-void DebugLines::DrawDebugLines()
+void DebugLines::DrawDebugLines(Camera& camera)
 {
 	if (debugLines.size() >= currentLineBufferSize)
 	{
@@ -23,7 +23,7 @@ void DebugLines::DrawDebugLines()
 	}
 
 	lineShader->Bind();
-	lineShader->SetUniformMat4("ModelViewProjection", DotsScene::mainCamera->GetViewProjection());
+	lineShader->SetUniformMat4("ModelViewProjection", camera.GetViewProjection());
 
 	glBindVertexArray(lineVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, lineVBO);

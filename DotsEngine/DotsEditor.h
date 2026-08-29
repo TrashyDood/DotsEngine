@@ -14,7 +14,6 @@ public:
 	void DotsEditor_ShowLeak();
 
 private:
-	DebugLines* lines;
-	DotsScene* scene;
-	bool leakingMemory;
+	DotsScene* scene = nullptr;
+	bool leakingMemory = false;
 };

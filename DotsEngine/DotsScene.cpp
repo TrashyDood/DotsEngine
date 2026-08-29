@@ -1,5 +1,7 @@
 #include "DotsScene.h"
 #include "DebugLines.h"
+#include "Utilities.h"
+#include "tracy/Tracy.hpp"
 
 #include <Time/Time.h>
 
@@ -9,66 +11,20 @@
 
 #include <glm/gtc/random.hpp>
 
-#include "tracy/Tracy.hpp"
+#define LOG(x) std::cout << x << "\n";
 
-#define LOG(x) std::cout << x << std::endl;
-
-namespace Colors
+DotsScene::DotsScene() : mainCamera(Camera()), flyingCamera(FlyingCamera(mainCamera))
 {
-	constexpr uint32_t Red = 0xFF0000;
-	constexpr uint32_t Green = 0x00FF00;
-	constexpr uint32_t Blue = 0x0000FF;
-	constexpr uint32_t Yellow = 0xFFFF00;
-	constexpr uint32_t Magenta = 0xFF00FF;
-	constexpr uint32_t Cyan = 0x00FFFF;
-	constexpr uint32_t Orange = 0xFFA500;
-	constexpr uint32_t Purple = 0x800080;
-	constexpr uint32_t Pink = 0xFFC0CB;
-	constexpr uint32_t Brown = 0xA52A2A;
-	constexpr uint32_t White = 0xFFFFFF;
-	constexpr uint32_t Black = 0x000000;
-	constexpr uint32_t Gray = 0x808080;
-	constexpr uint32_t LightGray = 0xD3D3D3;
-	constexpr uint32_t DarkGray = 0x404040;
-	constexpr uint32_t Teal = 0x008080;
-	constexpr uint32_t Navy = 0x000080;
-	constexpr uint32_t Lime = 0x32CD32;
-	constexpr uint32_t Gold = 0xFFD700;
-	constexpr uint32_t Indigo = 0x4B0082;
-	constexpr uint32_t Maroon = 0x800000;
-	constexpr uint32_t Olive = 0x808000;
-	constexpr uint32_t Turquoise = 0x40E0D0;
-	constexpr uint32_t Salmon = 0xFA8072;
-	constexpr uint32_t Coral = 0xFF7F50;
-
-	constexpr uint32_t UpdateMain = Green;
-	constexpr uint32_t Render = Blue;
-	constexpr uint32_t Collision = Red;
-	constexpr uint32_t Spawn = Gold;
-	constexpr uint32_t Cleanup = Gray;
-}
-
-Camera* DotsScene::mainCamera;
-
-DotsScene::DotsScene()
-{
-	mainCamera = new Camera();
-	flyingCamera = new FlyingCamera(mainCamera);
-
-	mainCamera->SetPosition(glm::vec3(0, 0, bounds * 4));
+	mainCamera.SetPosition(glm::vec3(0, 0, bounds * 4));
 }
 
 DotsScene::~DotsScene()
 {
 	// wait for sim thread to close
-	isSimulating.store(false, std::memory_order_relaxed);
-	if (simulationThread.valid()) simulationThread.get();
+	if (simulationTask.valid()) simulationTask.get();
 
 	// wait for build thread to close
 	if (buildTask.valid()) buildTask.get();
-
-	delete mainCamera;
-	delete flyingCamera;
 
 	delete DotAssets::SphereShader();
 	for (auto& mesh : DotAssets::Meshes())
@@ -78,55 +34,32 @@ DotsScene::~DotsScene()
 	renderContext.DeleteBuffers();
 }
 
-void DotsScene::DotsScene_Start(uint32_t dotsCount, bool threadedSimulation)
+void DotsScene::DotsScene_Start(uint32_t dotsCount)
 {
 	// if there is a previous sim thread active, close it
-	isSimulating.store(false, std::memory_order_relaxed);
-	if (simulationThread.valid()) simulationThread.get();
+	if (simulationTask.valid()) simulationTask.get();
 
 	// if there is a previous build thread active, close it
 	if (buildTask.valid()) buildTask.get();
 
 
 	LOG("Dots simulation started with " << dotsCount <<
-		" dots and threaded simulation " << ((threadedSimulation) ? "on!" : "off!"));
-
+		" dots and threaded simulation " << ((asyncSimulation) ? "on!" : "off!"));
 
 	DotsScene::dotsCount = dotsCount;
-	DotsScene::threadedSimulation = threadedSimulation;
 
 	renderContext.Init(dotsCount);
 	DotsScene_InitDotsData();
+}
 
-	DotsScene_BuildCollisionTree_Async(); // start building the first tree with dots data
+void DotsScene::DotsScene_Update()
+{
+	if (asyncSimulation)
+		DotsScene_Simulate_Async();
+	else
+		DotsScene_Simulate();
 
-	if (!threadedSimulation) return;
-
-	// open up a new thread for dots simulation
-	isSimulating.store(true, std::memory_order_relaxed);
-	simulationThread = StaticThreadPool().Submit([this]()
-	{
-		tracy::SetThreadName("Simulation Thread");
-
-		const float targetFrameTime = 1.f / 60.f; // fps cap
-
-		Time::sim_LastFrameTime = (float)glfwGetTime();
-
-		while (isSimulating.load(std::memory_order_relaxed))
-		{
-			float startTime = (float)glfwGetTime();
-
-			DotsScene_Simulate(Time::sim_DeltaTime);
-
-			float elapsed = (float)glfwGetTime() - startTime;
-			while (elapsed < targetFrameTime)
-				elapsed = (float)glfwGetTime() - startTime;
-
-			Time::UpdateSimulation(startTime);
-
-			FrameMarkNamed("Simulation");
-		}
-	});
+	DotsScene_Render(renderContext);
 }
 
 void DotsScene::DotsScene_Render(RenderContext& context) const
@@ -134,19 +67,37 @@ void DotsScene::DotsScene_Render(RenderContext& context) const
 	DotsScene_RenderMeshBuffers(context);
 	DotsScene_DrawBounds();
 
-	//if (drawTree)
-	//	readTree->DrawCell();
+	if (drawTree)
+		for (auto& cell : readTree->Cells())
+			if (cell.IsLeaf())
+				DebugLines::DrawCube(
+					cell.center,
+					glm::quat(),
+					glm::vec3(cell.halfExtent, cell.halfExtent, cell.halfExtent),
+					glm::vec3(1, 1, 1));
 }
 
-void DotsScene::DotsScene_Simulate(float deltaTime)
+void DotsScene::DotsScene_Simulate()
 {	
-	//DotsScene_HandleBoundsCollisions();
-	//DotsScene_UpdateDotsData(deltaTime);
+	ZoneScopedNC("Simulation", HexColors::Purple);
 
-	DotsScene_BuildCollisionTree_Async(); // starts building this frame's tree asynchronously
-	//DotsScene_HandleCollisions();
+	DotsScene_HandleBoundsCollisions();
+	DotsScene_UpdateDotsData();
 
-	//DotsScene_UpdateTransformBuffers(); // updates transform buffers for rendering
+	std::vector<std::pair<int, int>> pairs;
+	DotsScene_BuildCollisionTree_Async();
+	DotsScene_QueryCollisions_Async(pairs);
+	DotsScene_ResolveCollisions_Async(pairs);
+
+	DotsScene_UpdateTransformBuffers();
+}
+
+void DotsScene::DotsScene_Simulate_Async()
+{
+	if (simulationTask.valid()) simulationTask.get();
+
+	simulationTask = StaticThreadPool().Submit(
+		[this]() { DotsScene_Simulate(); });
 }
 
 #pragma region Dot Management
@@ -183,23 +134,23 @@ void DotsScene::DotsScene_ClearDotsData()
 	dotsMeshIndices = nullptr;
 }
 
-void DotsScene::DotsScene_UpdateDotsData(float deltaTime)
+void DotsScene::DotsScene_UpdateDotsData()
 {
 	{
-		ZoneScopedNC("Update Dots Position", Colors::UpdateMain);
+		ZoneScopedNC("Update Dots Position", HexColors::Update);
 
 		StaticThreadPool().For_Parallel<16>(dotsCount,
-			[this, deltaTime](uint16_t thread, uint32_t chunkStart, size_t dot)
+			[this](uint16_t thread, uint32_t chunkStart, size_t dot)
 			{
 				DotsScene_SetDotHealth(dot, dotsHealths[dot]);
-				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * deltaTime;
+				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * Time::main_DeltaTime;
 			});
 	}
 }
 
 void DotsScene::DotsScene_UpdateTransformBuffers()
 {
-	ZoneScopedNC("Update Transform Buffers ", Colors::UpdateMain);
+	ZoneScopedNC("Update Transform Buffers ", HexColors::Update);
 
 	constexpr uint32_t threadCount = 32;
 
@@ -273,34 +224,30 @@ void DotsScene::DotsScene_SetDotHealth(int dot, int health)
 #pragma region Collision Management
 void DotsScene::DotsScene_BuildCollisionTree_Async()
 {
-	if (buildTask.valid()) // wait for the previous tree to finish building
-		buildTask.get();
+	if (buildTask.valid()) buildTask.get();
 
 	std::swap(readTree, writeTree);
 
 	buildTask = StaticThreadPool().Submit(
 	[this]()
 	{
-		ZoneScopedNC("Build Tree", Colors::Collision);
+		ZoneScopedNC("Build Tree", HexColors::Collision);
 		writeTree->Build(dotsPositions, dotsRadii,
 			dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
 	});
 }
 
-void DotsScene::DotsScene_HandleCollisions()
+void DotsScene::DotsScene_QueryCollisions_Async(std::vector<std::pair<int, int>>& pairs)
 {
-	std::vector<std::pair<int, int>> pairs;
+	ZoneScopedNC("Query Collisions", HexColors::Collision);
+	readTree->QueryPairs(pairs);
+}
 
-	{
-		ZoneScopedNC("Query Collisions", Colors::Collision);
-		readTree->QueryPairs_Parallel(pairs);
-	}
-
-	{
-		ZoneScopedNC("Resolve Collisions", Colors::Collision);
-		for (auto pair : pairs)
-			DotsScene_ResolveCollision(pair.first, pair.second);
-	}
+void DotsScene::DotsScene_ResolveCollisions_Async(std::vector<std::pair<int, int>>& pairs)
+{
+	ZoneScopedNC("Resolve Collisions", HexColors::Collision);
+	for (auto pair : pairs)
+		DotsScene_ResolveCollision(pair.first, pair.second);
 }
 
 void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
@@ -329,7 +276,7 @@ void DotsScene::DotsScene_ResolveCollision(int dot1, int dot2)
 
 void DotsScene::DotsScene_HandleBoundsCollisions()
 {
-	ZoneScopedNC("Handle Bounds Collision", Colors::Collision);
+	ZoneScopedNC("Handle Bounds Collision", HexColors::Collision);
 
 	StaticThreadPool().For_Parallel<12>(dotsCount,
 		[this](uint32_t thread, uint32_t chunkStart, uint32_t dot)
@@ -358,12 +305,12 @@ void DotsScene::DotsScene_DrawBounds() const
 
 void DotsScene::DotsScene_RenderMeshBuffers(RenderContext& context) const
 {
-	ZoneScopedNC("Instanced Rendering", Colors::Render);
+	ZoneScopedNC("Instanced Rendering", HexColors::Render);
 
 	using namespace DotAssets;
 
 	SphereShader()->Bind();
-	SphereShader()->SetUniformMat4("ViewProjection", mainCamera->GetViewProjection());
+	SphereShader()->SetUniformMat4("ViewProjection", mainCamera.GetViewProjection());
 
 	int readSet = context.GetReadBufferIndex();
 	for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
@@ -385,7 +332,7 @@ float DotsScene::RandomFloat(float min, float max) const
 	return dist(gen);
 }
 
-void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount, bool threadedSimulation)
+void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount)
 {
 	// TOUCH THIS AND YOU DO NOT QUALIFY FOR LEADERBOARD
 	float spacing = 8.0f;
@@ -393,7 +340,16 @@ void DotsScene::DotsScene_LeaderBoardMode(uint32_t dotsCount, bool threadedSimul
 	float totalVolume = dotsCount * volumePerEntity;
 	dotsSpeed = 7.0f;
 	bounds = cbrt(totalVolume);
-	DotsScene_Start(dotsCount, threadedSimulation);
+	DotsScene_Start(dotsCount);
 	// TOUCH THIS AND YOU DO NOT QUALIFY FOR LEADERBOARD
+}
+
+void DotsScene::DotsScene_CollisionTest()
+{
+	DotsScene_Start(2);
+	DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
+	DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
+	dotsSpeed = 50.f;
+	bounds = 15.f;
 }
 #pragma endregion

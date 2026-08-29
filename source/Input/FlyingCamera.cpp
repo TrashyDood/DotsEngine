@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <Input/Input.h>
 
-FlyingCamera::FlyingCamera(Camera* camera) : m_Camera(camera)
+FlyingCamera::FlyingCamera(Camera& camera) : m_Camera(camera)
 {
 	m_Yaw = -90.0f;
 	m_Pitch = 0.0f;
@@ -12,14 +12,12 @@ FlyingCamera::FlyingCamera(Camera* camera) : m_Camera(camera)
 	m_Right = glm::vec3(1, 0, 0);
 	m_Up = glm::vec3(0, 1, 0);
 
-	if (m_Camera) m_Camera->LookAt(m_Camera->GetPosition() + m_Forward, m_Up);
+	m_Camera.LookAt(m_Camera.GetPosition() + m_Forward, m_Up);
 }
 
 void FlyingCamera::Update()
 {
     float dt = Time::main_DeltaTime;
-
-    if (!m_Camera) return;
 
     bool mouseCaptured = Input::MouseDown(GLFW_MOUSE_BUTTON_RIGHT);
 
@@ -32,7 +30,7 @@ void FlyingCamera::Update()
     float dy = (float)Input::MouseDeltaY();
     OnMouseMove(dx, dy);
 
-    glm::vec3 position = m_Camera->GetPosition();
+    glm::vec3 position = m_Camera.GetPosition();
 
     if (Input::KeyDown(GLFW_KEY_W)) position += m_Forward * m_MoveSpeed * dt;
     if (Input::KeyDown(GLFW_KEY_S)) position -= m_Forward * m_MoveSpeed * dt;
@@ -41,8 +39,8 @@ void FlyingCamera::Update()
     if (Input::KeyDown(GLFW_KEY_SPACE)) position += m_Up * m_MoveSpeed * dt;
     if (Input::KeyDown(GLFW_KEY_LEFT_SHIFT)) position -= m_Up * m_MoveSpeed * dt;
 
-    m_Camera->SetPosition(position);
-    m_Camera->LookAt(position + m_Forward, m_Up);
+    m_Camera.SetPosition(position);
+    m_Camera.LookAt(position + m_Forward, m_Up);
 }
 
 void FlyingCamera::OnMouseMove(float dx, float dy)

@@ -29,17 +29,17 @@ void Mesh::Mesh_Init()
 
 void Mesh::Mesh_RenderSingle(Shader* aShader, glm::vec3 position)
 {
-	aShader->Bind();
+	//aShader->Bind();
 
-	glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-	aShader->SetUniformMat4("ModelViewProjection", DotsScene::mainCamera->GetViewProjection() * model); 
-	aShader->SetUniformVec3("Color", color); 
+	//glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+	//aShader->SetUniformMat4("ModelViewProjection", DotsScene::mainCamera->GetViewProjection() * model); 
+	//aShader->SetUniformVec3("Color", color); 
 
-	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
+	//glBindVertexArray(VAO);
+	//glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+	//glBindVertexArray(0);
 
-	aShader->Unbind();
+	//aShader->Unbind();
 }
 
 // ---- Instanced Mesh ----

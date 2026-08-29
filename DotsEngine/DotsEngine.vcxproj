@@ -180,6 +180,7 @@
     <ClInclude Include="Octree.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="ThreadPool.h" />
+    <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Shaders\Debug\Line_FragmentShader.glsl" />

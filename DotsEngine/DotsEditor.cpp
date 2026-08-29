@@ -1,7 +1,6 @@
 #include "DotsEditor.h"
 #include <Time/Time.h>
 #include <imgui/imgui.h>
-#include <iostream>
 #include "DotsScene.h"
 #include <windows.h>
 #include <psapi.h>
@@ -12,11 +11,13 @@ const int Leak_QueueMax = 25;
 float Leak_Current = 0;
 int Leak_Streak = 0,
 Leak_StreakCheck = 20;
-int pendingDotsCount = 0;
 std::queue<size_t> Leak_Queue{};
 size_t Leak_Threshold = 1024 * 1024;
 size_t Leak_RecordHigh = 0;
 size_t memory = 0;
+
+int dotsCount_Pending = 0;
+bool threadedSimulation_Pending = true;
 
 size_t GetMemoryUsage()
 {
@@ -25,11 +26,9 @@ size_t GetMemoryUsage()
 	return info.WorkingSetSize;
 }
 
-DotsEditor::DotsEditor(DotsScene* aScene)
+DotsEditor::DotsEditor(DotsScene* aScene) : scene(aScene)
 {
-	lines = new DebugLines();
-	scene = aScene;
-	pendingDotsCount = scene->dotsCount;
+	dotsCount_Pending = scene->dotsCount;
 }
 
 void DotsEditor::DotsEditor_Draw()
@@ -41,13 +40,7 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Indent(15);
 	ImGui::Text("Performance");
 
-	if (scene->threadedSimulation)
-	{
-		ImGui::Text(("Render FPS - " + std::to_string(Time::main_FPS)).c_str());
-		ImGui::Text(("Simulation FPS - " + std::to_string(Time::sim_FPS)).c_str());
-	}
-	else
-		ImGui::Text(("FPS - " + std::to_string(Time::main_FPS)).c_str());
+	ImGui::Text(("FPS - " + std::to_string(Time::main_FPS)).c_str());
 
 	memory = GetMemoryUsage();
 
@@ -56,27 +49,20 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Separator();
 	ImGui::NewLine();
 	ImGui::Checkbox("Draw tree", &scene->drawTree);
+	ImGui::Checkbox("Async simulation", &scene->asyncSimulation);
 
-	ImGui::InputInt("DotAmount", &pendingDotsCount, 10, 100);
+	ImGui::InputInt("DotAmount", &dotsCount_Pending, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotsSpeed, 1.0f, 10.0f);
 	ImGui::SliderFloat("DotBounds", &scene->bounds, 10.0f, 200.0f);
 
 	if (ImGui::Button("Start simulation"))
-		scene->DotsScene_Start(pendingDotsCount);
+		scene->DotsScene_Start(dotsCount_Pending);
 	else if (ImGui::Button("Leaderboard mode"))
-		scene->DotsScene_LeaderBoardMode(pendingDotsCount);
+		scene->DotsScene_LeaderBoardMode(dotsCount_Pending);
 	else if (ImGui::Button("Collision test"))
-	{
-		scene->DotsScene_Start(2);
-		scene->DotsScene_SetDotData(0, glm::vec3(8, 0, 0), glm::vec3(-1, 0, 0));
-		scene->DotsScene_SetDotData(1, glm::vec3(-8, 0, 0), glm::vec3(1, 0, 0));
-		scene->dotsSpeed = 20.f;
-		scene->bounds = 25.f;
-	}
+		scene->DotsScene_CollisionTest();
 
 	ImGui::End();
-
-	lines->DrawDebugLines();
 
 	DotsEditor_CheckLeak();
 }
