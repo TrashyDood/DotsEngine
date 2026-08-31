@@ -48,8 +48,8 @@ void DotsEditor::DotsEditor_Draw()
 	ImGui::Unindent();
 	ImGui::Separator();
 	ImGui::NewLine();
-	ImGui::Checkbox("Draw tree", &scene->drawTree);
-	ImGui::Checkbox("Async simulation", &scene->asyncSimulation);
+	//ImGui::Checkbox("Draw tree", &scene->drawTree);
+	//ImGui::Checkbox("Async simulation", &scene->asyncSimulation);
 
 	ImGui::InputInt("DotAmount", &dotsCount_Pending, 10, 100);
 	ImGui::InputFloat("DotSpeed", &scene->dotsSpeed, 1.0f, 10.0f);

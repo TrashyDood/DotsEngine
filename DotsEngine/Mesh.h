@@ -18,8 +18,6 @@ public:
 	const inline unsigned int GetVBO() const { return VBO; }
 	const inline unsigned int GetEBO() const { return EBO; }
 
-	void Mesh_RenderSingle(Shader* aShader, glm::vec3 position);
-
 protected:
 	virtual void Mesh_Init();
 	virtual void Mesh_ConstructMesh() = 0;

@@ -13,6 +13,31 @@
 
 #define LOG(x) std::cout << x << "\n";
 
+thread_local bool inTracyAlloc = false;
+
+void* operator new(size_t count)
+{
+	void* ptr = malloc(count);
+	if (!inTracyAlloc)
+	{
+		inTracyAlloc = true;
+		TracyAllocS(ptr, count, 10);
+		inTracyAlloc = false;
+	}
+	return ptr;
+}
+
+void operator delete(void* ptr) noexcept
+{
+	if (!inTracyAlloc)
+	{
+		inTracyAlloc = true;
+		TracyFreeS(ptr, 10);
+		inTracyAlloc = false;
+	}
+	free(ptr);
+}
+
 DotsScene::DotsScene() : camera(FlyingCamera()) {}
 
 DotsScene::~DotsScene()
@@ -23,9 +48,6 @@ DotsScene::~DotsScene()
 	delete DotAssets::SphereShader();
 	for (auto& mesh : DotAssets::Meshes())
 		delete mesh;
-
-	DotsScene_ClearDotsData();
-	renderContext.DeleteBuffers();
 }
 
 void DotsScene::DotsScene_Start(uint32_t dotsCount)
@@ -33,13 +55,15 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount)
 	if (simulationTask.valid()) simulationTask.get();
 	if (treeTask.valid()) treeTask.get();
 
-	LOG("Dots simulation started with " << dotsCount <<
-		" dots and threaded simulation " << ((asyncSimulation) ? "on!" : "off!"));
+	LOG("Dots simulation started with " << dotsCount << " dots!");
 
 	DotsScene::dotsCount = dotsCount;
 
-	renderContext.Init(dotsCount);
 	DotsScene_InitDotsData();
+	DotsScene_InitRenderBuffers();
+
+	readCollisionPairs->clear();
+	writeCollisionPairs->clear();
 
 	camera.SetPosition(glm::vec3(0, 0, bounds * 2));
 	camera.LookAt(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
@@ -47,43 +71,24 @@ void DotsScene::DotsScene_Start(uint32_t dotsCount)
 
 void DotsScene::DotsScene_Tick()
 {
+	ZoneScopedNC("Tick", HexColors::Yellow);
+
 	camera.Update();
 
-	if (asyncSimulation)
-		DotsScene_Simulate_Async();
-	else
-		DotsScene_Simulate();
-
-	DotsScene_Render(renderContext);
-}
-
-void DotsScene::DotsScene_Render(RenderContext& context) const
-{
-	DotsScene_RenderMeshBuffers(context);
-	DotsScene_DrawBounds();
-
-	if (drawTree)
-		for (auto& cell : readTree->Cells())
-			if (cell.IsLeaf())
-				DebugLines::DrawCube(
-					cell.center,
-					glm::quat(),
-					glm::vec3(cell.halfExtent, cell.halfExtent, cell.halfExtent),
-					glm::vec3(1, 1, 1));
+	DotsScene_PopulateMeshBuffers_Async();
+	DotsScene_Render();
+	DotsScene_Simulate_Async();
 }
 
 void DotsScene::DotsScene_Simulate()
-{	
-	ZoneScopedNC("Simulation", HexColors::Purple);
+{
+	ZoneScopedNC("Simulation", HexColors::Update);
 
-	std::vector<std::pair<int, int>> collisionPairs;
-	DotsScene_BuildAndQueryTree(collisionPairs, *writeTree);
-	DotsScene_ResolveCollisions(collisionPairs);
+	DotsScene_BuildAndQueryTree_Async();
+	DotsScene_ResolveCollisions();
 
 	DotsScene_HandleBoundsCollisions();
 	DotsScene_UpdateDotsData();
-
-	DotsScene_UpdateTransformBuffers();
 }
 
 void DotsScene::DotsScene_Simulate_Async()
@@ -94,16 +99,22 @@ void DotsScene::DotsScene_Simulate_Async()
 		[this]() { DotsScene_Simulate(); });
 }
 
+void DotsScene::DotsScene_Render() const
+{
+	ZoneScopedNC("Render", HexColors::Render);
+
+	DotsScene_RenderMeshBuffers(*readTransfBuffers, *readTransfBufferOffsets);
+	DotsScene_DrawBounds();
+}
+
 #pragma region Dot Management
 void DotsScene::DotsScene_InitDotsData()
 {
-	DotsScene_ClearDotsData(); // cleanup before init
-
-	dotsHealths = new int[dotsCount];
-	dotsPositions = new glm::vec3[dotsCount];
-	dotsVelocities = new glm::vec3[dotsCount];
-	dotsRadii = new float[dotsCount];
-	dotsMeshIndices = new int[dotsCount];
+	dotsHealths = std::make_unique<int[]>(dotsCount);
+	dotsMeshIndices = std::make_unique<int[]>(dotsCount);
+	dotsRadii = std::make_unique<float[]>(dotsCount);
+	dotsPositions = std::make_unique<glm::vec3[]>(dotsCount);
+	dotsVelocities = std::make_unique<glm::vec3[]>(dotsCount);
 
 	for (size_t dot = 0; dot < dotsCount; dot++)
 		DotsScene_SetDotData(dot,
@@ -111,21 +122,6 @@ void DotsScene::DotsScene_InitDotsData()
 			RandomFloat(-bounds, bounds),
 			RandomFloat(-bounds, bounds) },
 			glm::sphericalRand(1.0f));
-}
-
-void DotsScene::DotsScene_ClearDotsData()
-{
-	delete[] dotsHealths;
-	delete[] dotsPositions;
-	delete[] dotsVelocities;
-	delete[] dotsRadii;
-	delete[] dotsMeshIndices;
-
-	dotsHealths = nullptr;
-	dotsPositions = nullptr;
-	dotsVelocities = nullptr;
-	dotsRadii = nullptr;
-	dotsMeshIndices = nullptr;
 }
 
 void DotsScene::DotsScene_UpdateDotsData(bool parallel)
@@ -147,56 +143,6 @@ void DotsScene::DotsScene_UpdateDotsData(bool parallel)
 				dotsPositions[dot] += glm::normalize(dotsVelocities[dot]) * (dotsSpeed / dotsRadii[dot]) * StaticTime().DeltaTime();
 			}
 	}
-}
-
-void DotsScene::DotsScene_UpdateTransformBuffers()
-{
-	ZoneScopedNC("Update Transform Buffers ", HexColors::Update);
-
-	constexpr uint32_t threadCount = 32;
-
-	uint32_t counts[threadCount][DotAssets::meshCount]{};
-
-	{
-		StaticThreadPool().For_Parallel<threadCount>(dotsCount,
-			[this, &counts](uint32_t thread, uint32_t chunkStart, uint32_t dot)
-			{
-				counts[thread][dotsMeshIndices[dot]]++;
-			});
-	}
-
-	uint32_t offsets[threadCount][DotAssets::meshCount];
-	uint32_t totals[DotAssets::meshCount]{};
-
-	{
-		for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
-		{
-			uint32_t running = 0;
-			for (uint32_t t = 0; t < threadCount; t++)
-			{
-				offsets[t][mesh] = running;
-				running += counts[t][mesh];
-			}
-			totals[mesh] = running;
-		}
-	}
-
-	int writeSet = renderContext.GetWriteBufferIndex();
-
-	{
-		StaticThreadPool().For_Parallel<threadCount>(dotsCount,
-			[this, writeSet, &offsets](uint32_t thread, uint32_t chunkStart, uint32_t dot)
-			{
-				uint16_t mesh = dotsMeshIndices[dot];
-				uint32_t slot = offsets[thread][mesh]++;
-				renderContext.transformBuffers[writeSet][mesh][slot] = glm::translate(glm::mat4(1.0f), dotsPositions[dot]);
-			});
-
-		for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
-			renderContext.countBuffers[writeSet][mesh] = totals[mesh];
-	}
-
-	renderContext.SwapBuffers(writeSet);
 }
 
 void DotsScene::DotsScene_SetDotData(int dot, glm::vec3 position, glm::vec3 velocity, int health)
@@ -223,38 +169,28 @@ void DotsScene::DotsScene_SetDotHealth(int dot, int health)
 #pragma endregion
 
 #pragma region Collision Management
-void DotsScene::DotsScene_BuildAndQueryTree(std::vector<std::pair<int, int>>& pairs, CollisionTree& tree, bool async)
+void DotsScene::DotsScene_BuildAndQueryTree_Async()
 {
-	if (async)
-	{
-		if (treeTask.valid()) treeTask.get();
+	if (treeTask.valid()) treeTask.get();
 
-		std::swap(readTree, writeTree);
+	std::swap(readTree, writeTree);
+	std::swap(readCollisionPairs, writeCollisionPairs);
 
-		treeTask = StaticThreadPool().Submit(
-			[this]()
-			{
-				ZoneScopedNC("Build And Query Collisions Async", HexColors::Collision);
-				writeTree->Build(dotsPositions, dotsRadii,
-					dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
+	treeTask = StaticThreadPool().Submit(
+		[this]()
+		{
+			ZoneScopedNC("Build And Query Collisions Async", HexColors::Collision);
+			writeTree->Build(dotsPositions.get(), dotsRadii.get(),
+				dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
 
-
-			});
-	}
-	else
-	{
-		ZoneScopedNC("Build And Query Collisions", HexColors::Collision);
-
-		tree.Build(dotsPositions, dotsRadii,
-			dotsCount, bounds, 15, 6, DotAssets::Meshes()[2]->Radius());
-		tree.QueryPairs(pairs);
-	}
+			writeTree->QueryPairs(*writeCollisionPairs);
+		});
 }
 
-void DotsScene::DotsScene_ResolveCollisions(std::vector<std::pair<int, int>>& pairs)
+void DotsScene::DotsScene_ResolveCollisions()
 {
 	ZoneScopedNC("Resolve Collisions", HexColors::Collision);
-	for (auto pair : pairs)
+	for (auto& pair : *readCollisionPairs)
 		DotsScene_ResolveCollision(pair.first, pair.second);
 }
 
@@ -303,31 +239,89 @@ void DotsScene::DotsScene_HandleBoundsCollisions()
 #pragma endregion
 
 #pragma region Rendering
-void DotsScene::DotsScene_DrawBounds() const
+void DotsScene::DotsScene_InitRenderBuffers()
 {
-	DebugLines::DrawCube(glm::vec3(0, 0, 0),
-		glm::quat(),
-		glm::vec3(bounds + 5.f, bounds + 5.f, bounds + 5.f),
-		glm::vec3(1, 1, 0));
+	for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
+	{
+		transfBuffersA = std::make_unique<glm::mat4[]>(dotsCount);
+		transfBuffersB = std::make_unique<glm::mat4[]>(dotsCount);
+	}
+
+	transfBufferOffsetsA.fill(0);
+	transfBufferOffsetsB.fill(0);
 }
 
-void DotsScene::DotsScene_RenderMeshBuffers(RenderContext& context) const
+void DotsScene::DotsScene_PopulateMeshBuffers(TransformBuffer& transformBuffers,
+	TransformBufferOffsets& bufferOffsets) const
 {
-	ZoneScopedNC("Instanced Rendering", HexColors::Render);
+	ZoneScopedNC("Populate Buffers ", HexColors::Update);
+
+	uint32_t meshCounts[DotAssets::meshCount]{};
+	for (size_t dot = 0; dot < dotsCount; dot++)
+		meshCounts[dotsMeshIndices[dot]]++;
+
+	uint32_t offset = 0;
+	for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
+	{
+		bufferOffsets[mesh] = offset;
+		offset += meshCounts[mesh];
+	}
+
+	bufferOffsets[DotAssets::meshCount] = offset;
+
+	uint32_t cursor[DotAssets::meshCount];
+	std::copy(std::begin(bufferOffsets), std::begin(bufferOffsets) + DotAssets::meshCount, std::begin(cursor));
+
+	for (size_t dot = 0; dot < dotsCount; dot++)
+	{
+		uint32_t mesh = dotsMeshIndices[dot];
+		transformBuffers[cursor[mesh]++] = glm::translate(glm::mat4(1.0f), dotsPositions[dot]);
+	}
+}
+
+void DotsScene::DotsScene_PopulateMeshBuffers_Async()
+{
+	if (populateBuffersTask.valid()) populateBuffersTask.get();
+
+	std::swap(readTransfBuffers, writeTransfBuffers);
+	std::swap(readTransfBufferOffsets, writeTransfOffsetsBuffer);
+
+	populateBuffersTask = StaticThreadPool().Submit(
+		[this]()
+		{
+			ZoneScopedNC("Build And Query Collisions Async", HexColors::Render);
+			DotsScene_PopulateMeshBuffers(*writeTransfBuffers, *writeTransfOffsetsBuffer);
+		});
+}
+
+void DotsScene::DotsScene_RenderMeshBuffers(const TransformBuffer& transformBuffers,
+	const TransformBufferOffsets& bufferOffsets) const
+{
+	ZoneScopedNC("Render Buffers", HexColors::Render);
 
 	using namespace DotAssets;
 
 	SphereShader()->Bind();
 	SphereShader()->SetUniformMat4("ViewProjection", camera.GetViewProjection());
 
-	int readSet = context.GetReadBufferIndex();
 	for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
 	{
-		Meshes()[mesh]->Mesh_UpdateInstanceData(context.transformBuffers[readSet][mesh], context.countBuffers[readSet][mesh]);
-		Meshes()[mesh]->Mesh_RenderInstanced(SphereShader(), context.countBuffers[readSet][mesh]);
+		uint32_t count = bufferOffsets[mesh + 1] - bufferOffsets[mesh];
+		const glm::mat4* meshTransforms = transformBuffers.get() + bufferOffsets[mesh];
+
+		Meshes()[mesh]->Mesh_UpdateInstanceData(meshTransforms, count);
+		Meshes()[mesh]->Mesh_RenderInstanced(SphereShader(), count);
 	}
 
 	SphereShader()->Unbind();
+}
+
+void DotsScene::DotsScene_DrawBounds() const
+{
+	DebugLines::DrawCube(glm::vec3(0, 0, 0),
+		glm::quat(),
+		glm::vec3(bounds + 5.f, bounds + 5.f, bounds + 5.f),
+		glm::vec3(1, 1, 0));
 }
 #pragma endregion
 

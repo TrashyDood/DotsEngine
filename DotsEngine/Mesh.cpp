@@ -27,21 +27,6 @@ void Mesh::Mesh_Init()
 	glBindVertexArray(0);
 }
 
-void Mesh::Mesh_RenderSingle(Shader* aShader, glm::vec3 position)
-{
-	//aShader->Bind();
-
-	//glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-	//aShader->SetUniformMat4("ModelViewProjection", DotsScene::mainCamera->GetViewProjection() * model); 
-	//aShader->SetUniformVec3("Color", color); 
-
-	//glBindVertexArray(VAO);
-	//glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-	//glBindVertexArray(0);
-
-	//aShader->Unbind();
-}
-
 // ---- Instanced Mesh ----
 
 void InstancedMesh::Mesh_Init()

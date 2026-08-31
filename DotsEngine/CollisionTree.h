@@ -11,6 +11,7 @@
 
 using uint8_t = unsigned char;
 using Color = glm::vec3;
+using CollisionPairs = std::vector<std::pair<int, int>>;
 
 class CollisionTree
 {
@@ -85,8 +86,10 @@ public:
 		}
 	}
 
-	void QueryPairs(std::vector<std::pair<int, int>>& outPairs) const
+	void QueryPairs(CollisionPairs& outPairs) const
 	{
+		ZoneScopedNC("Query", HexColors::Brown);
+
 		outPairs.clear();
 
 		for (const Cell& cell : cells)

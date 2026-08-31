@@ -9,6 +9,7 @@
 #include "CollisionTree.h"
 #include "ThreadPool.h"
 
+
 namespace DotAssets
 {
 	static constexpr uint16_t meshCount = 3;
@@ -24,60 +25,35 @@ namespace DotAssets
 	}
 }
 
-struct RenderContext
-{
-	glm::mat4* transformBuffers[2][DotAssets::meshCount]{};
-	uint32_t countBuffers[2][DotAssets::meshCount]{};
-	std::atomic<int> frontIndex{ 0 };
-
-	RenderContext() = default;
-	~RenderContext() { DeleteBuffers(); }
-
-	void Init(const uint32_t bufferSize)
-	{
-		DeleteBuffers();
-
-		for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
-			for (int set = 0; set < 2; set++)
-					transformBuffers[set][mesh] = new glm::mat4[bufferSize];
-	}
-
-	void DeleteBuffers()
-	{
-		for (int set = 0; set < 2; set++)
-		{
-			for (size_t mesh = 0; mesh < DotAssets::meshCount; mesh++)
-			{
-				delete[] transformBuffers[set][mesh];
-				transformBuffers[set][mesh] = nullptr;
-			}
-		}
-	}
-
-	uint8_t GetWriteBufferIndex() { return 1 - frontIndex.load(std::memory_order_relaxed); }
-	uint8_t GetReadBufferIndex() { return frontIndex.load(std::memory_order_acquire); }
-	void SwapBuffers(uint8_t writeIndex) { frontIndex.store(writeIndex, std::memory_order_release); }
-};
+using TransformBuffer = std::unique_ptr<glm::mat4[]>;
+using TransformBufferOffsets = std::array<uint32_t, DotAssets::meshCount + 1>;
 
 class DotsScene
 {
 	CollisionTree treeA, treeB;
 	CollisionTree* readTree = &treeA, *writeTree = &treeB;
+	CollisionPairs collisionPairsA, collisionPairsB;
+	CollisionPairs* readCollisionPairs = &collisionPairsA, *writeCollisionPairs = &collisionPairsB;
 	std::future<void> treeTask;
 
+	std::unique_ptr<int[]> dotsHealths, dotsMeshIndices;
+	std::unique_ptr<float[]> dotsRadii;
+	std::unique_ptr<glm::vec3[]> dotsPositions, dotsVelocities;
 	std::future<void> simulationTask;
 
-	int* dotsHealths = nullptr;
-	glm::vec3* dotsPositions = nullptr;
-	glm::vec3* dotsVelocities = nullptr;
-	float* dotsRadii = nullptr;
-	int* dotsMeshIndices = nullptr;
+	TransformBuffer transfBuffersA, transfBuffersB;
+	TransformBuffer* readTransfBuffers = &transfBuffersA,
+		*writeTransfBuffers = &transfBuffersB;
+	TransformBufferOffsets transfBufferOffsetsA, transfBufferOffsetsB;
+	TransformBufferOffsets* readTransfBufferOffsets = &transfBufferOffsetsA,
+		*writeTransfOffsetsBuffer = &transfBufferOffsetsB;
+
+	std::future<void> populateBuffersTask;
 
 public:
 	static const uint32_t dotsCount_Default = 40000;
 
 	FlyingCamera camera;
-	RenderContext renderContext;
 
 	float bounds = 50.0f,
 		dotsSpeed = 5.0f;
@@ -94,25 +70,28 @@ public:
 	void DotsScene_CollisionTest();
 
 	void DotsScene_Tick();
-	void DotsScene_Render(RenderContext& context) const;
 	void DotsScene_Simulate();
 	void DotsScene_Simulate_Async();
-
-	void DotsScene_DrawBounds() const;
+	void DotsScene_Render() const;
 
 	void DotsScene_InitDotsData();
 	void DotsScene_ClearDotsData();
 	void DotsScene_UpdateDotsData(bool parallel = true);
-	void DotsScene_UpdateTransformBuffers();
 	void DotsScene_SetDotData(int dot, glm::vec3 position = {}, glm::vec3 velocity = {}, int health = 3);
 	void DotsScene_SetDotHealth(int dot, int health);
 
-	void DotsScene_BuildAndQueryTree(std::vector<std::pair<int, int>>& pairs, CollisionTree& tree, bool async = true);
-	void DotsScene_ResolveCollisions(std::vector<std::pair<int, int>>& pairs);
+	void DotsScene_BuildAndQueryTree_Async();
+	void DotsScene_ResolveCollisions();
 	void DotsScene_ResolveCollision(int dot1, int dot2);
 	void DotsScene_HandleBoundsCollisions();
 
-	void DotsScene_RenderMeshBuffers(RenderContext& context) const;
+	void DotsScene_InitRenderBuffers();
+	void DotsScene_PopulateMeshBuffers(TransformBuffer& transformBuffers,
+		TransformBufferOffsets& bufferOffsets) const;
+	void DotsScene_PopulateMeshBuffers_Async();
+	void DotsScene_RenderMeshBuffers(const TransformBuffer& transformBuffers,
+		const TransformBufferOffsets& bufferOffsets) const;
+	void DotsScene_DrawBounds() const;
 
 	float RandomFloat(float min, float max) const;
 };
